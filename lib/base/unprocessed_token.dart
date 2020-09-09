@@ -3,10 +3,11 @@ import 'package:lexpro/base/token.dart';
 
 class UnprocessedToken extends Equatable {
   UnprocessedToken(this.pos, this.token, this.match,
-      [this.stateName, this.debuggable])
+      [this.stateName, this.debuggable, this.dtoken])
       : super([pos, token, match]);
   final int pos;
   final Token token;
+  final DynamicToken dtoken;
   final String match;
   final String stateName;
   final bool debuggable;

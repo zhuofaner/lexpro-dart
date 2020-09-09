@@ -514,3 +514,20 @@ abstract class RegexLexer extends Lexer {
     return expanded;
   }
 }
+
+abstract class DTokenedRegexLexer extends RegexLexer {
+  DTokenedRegexLexer({
+    stripnl = true,
+    stripall = false,
+    ensurenl = true,
+    tabsize = 0,
+    encoding = 'guess',
+    debuggable = false,
+  }) : super(
+            stripnl: stripnl,
+            stripall: stripall,
+            ensurenl: ensurenl,
+            tabsize: tabsize,
+            encoding: encoding,
+            debuggable: debuggable);
+}

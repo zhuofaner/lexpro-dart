@@ -102,6 +102,7 @@ enum Token {
   RecurseSameLexer,
   // added in lexpro
   IncludeOtherLexer,
+  Dynamic
 }
 
 /// easy for users to define their own Tokens
@@ -114,6 +115,7 @@ class DynamicToken {
     for (var tk in Token.values) {
       if (tk.toString() == toString()) return tk;
     }
+    return Token.Dynamic;
   }
 
   @override
