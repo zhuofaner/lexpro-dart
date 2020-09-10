@@ -102,6 +102,7 @@ enum Token {
   RecurseSameLexer,
   // added in lexpro
   IncludeOtherLexer,
+  // for DynamicToken transfer
   Dynamic
 }
 
@@ -200,9 +201,7 @@ class JParse extends Parse {
   ]) : super(pattern, dtoken.token, newStates);
 
   final DynamicToken dtoken;
-  Token get token {
-    if (dtoken.token != null) return dtoken.token;
-  }
+  Token get token => dtoken.token;
 
   factory JParse.include(String s) =>
       JParse(s, DynamicToken.from(Token.IncludeOtherParse));
@@ -233,11 +232,11 @@ class GroupParse extends Parse {
 class GroupJParse extends JParse {
   GroupJParse(
     String pattern,
-    this.groupdTokens, [
+    this.groupDTokens, [
     List<String> newStates = null,
   ]) : super(pattern, DynamicToken.from(Token.ParseByGroups), newStates);
 
-  final List<DynamicToken> groupdTokens;
+  final List<DynamicToken> groupDTokens;
 }
 
 class LexerParse extends Parse {

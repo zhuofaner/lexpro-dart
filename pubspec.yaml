@@ -1,13 +1,13 @@
 name: lexpro
 description: Dart lexer for various programming languages base on lex v0.0.1 originally published by thlorenz10@gmail.com edit by jackyanjiaqi@gmail.com
-version: 1.0.2+1
+version: 1.1.0
 homepage: https://www.zhihu.com/people/digitalspritejack
 
 environment:
   sdk: ">=2.2.0 <3.0.0"
 
 dependencies:
-  equatable: ^0.5.0
+  equatable: ^1.2.5
 
 dev_dependencies:
   test: ^1.15.3

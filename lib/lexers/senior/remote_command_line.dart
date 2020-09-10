@@ -64,16 +64,3 @@ class RemoteCommandLine extends DTokenedRegexLexer {
   @override
   String get root => 'root';
 }
-
-void main() {
-  print(RemoteCommandLine().pretty('clear\n'
-      'whoami        \n'
-      'cd name/is/jack\n'
-      'which vim\n'));
-
-  ///CMD.Single(clear)ExecSymbol(\n)
-  ///CMD.Single(whoami)        ExecSymbol(\n)
-  ///CMD.Path(cd) RltvPath(name/is/jack)ExecSymbol(\n)
-  ///CMD.CmmdName(which) NAME.Commands(vim)ExecSymbol(\n)
-  ///
-}

@@ -1,9 +1,6 @@
-import 'dart:developer';
-
 import 'package:lexpro/base/token.dart';
 import 'package:lexpro/base/types.dart';
 import 'package:lexpro/base/unprocessed_token.dart';
-import 'package:lexpro/utils/poprouter.dart';
 import 'package:lexpro/utils/tools.dart';
 
 export 'package:lexpro/base/token.dart';
@@ -83,23 +80,37 @@ abstract class Lexer {
       unprocessedTokens = getTokensUnprocessed(text);
     }
     var out = "";
-    Token currentToken;
+    String currentTokenName;
+    bool newlineNeeded = false;
     for (UnprocessedToken token in unprocessedTokens) {
       if (token.token == Token.Text) {
-        if (currentToken != null) {
+        if (currentTokenName != null) {
           out += ')';
-          currentToken = null;
+          currentTokenName = null;
         }
         out += token.match;
       } else {
-        if (token.token != currentToken) {
-          if (currentToken != null) {
+        if (token.tokenName != currentTokenName) {
+          if (currentTokenName != null) {
             out += ')';
+            if (newlineNeeded == true) {
+              out += '\n';
+              newlineNeeded = false;
+            }
           }
-          out += token.token.toString().replaceAll("Token.", "") + '(';
-          currentToken = token.token;
+          out += token.tokenName + '(';
+          currentTokenName = token.tokenName;
+          if (token.match.contains('\n')) {
+            newlineNeeded = true;
+          }
         }
-        out += token.match;
+        out += token.prettyMatch;
+      }
+    }
+    if (currentTokenName != null) {
+      out += ')';
+      if (newlineNeeded == true) {
+        out += '\n';
       }
     }
     return out;
@@ -140,7 +151,7 @@ typedef RegExpMatch RexMatch(String text, int pos);
 // If the new state is '#pop', the topmost state is popped from the stack
 // instead. To pop more than one state, use '#pop:2' and so on.
 // '#push' is a synonym for pushing the current state on the stack.
-abstract class RegexLexer extends Lexer {
+abstract class RegexLexer<T extends Parse> extends Lexer {
   RegexLexer({
     stripnl = true,
     stripall = false,
@@ -156,8 +167,8 @@ abstract class RegexLexer extends Lexer {
             encoding: encoding,
             debuggable: debuggable);
   RegExpFlags get flags;
-  Map<String, List<Parse>> get parses;
-  Map<String, List<Parse>> commonparses(Map<String, List<Parse>> currentCommon);
+  Map<String, List<T>> get parses;
+  Map<String, List<T>> commonparses(Map<String, List<T>> currentCommon);
   String pretty(String text,
       [List<String> stack, Position pos, Map<String, List<Parse>> commondefs]) {
     return processedString(
@@ -172,23 +183,23 @@ abstract class RegexLexer extends Lexer {
   // containing tuples in the form (index, token, value).
   // Stream<Tuple2<index, token, value>>
   Iterable<UnprocessedToken> getTokensUnprocessed(String text,
-      [List<String> stack, Position pos, Map<String, List<Parse>> commondefs]) {
+      [List<String> stack, Position pos, Map<String, List<T>> commondefs]) {
     var ret = <UnprocessedToken>[];
     pos = pos ?? Position(0);
 
     /// merge common
     commondefs = _merge(commondefs, commonparses(commondefs));
-    Map<String, Iterable<Parse>> parsedefs =
+    Map<String, Iterable<T>> parsedefs =
 
         /// merge all
         _expand(_merge(commondefs, parses));
     final List<String> statestack = stack ?? List.from([root]);
-    List<Parse> statetokens = parsedefs[statestack.last];
+    List<T> statetokens = parsedefs[statestack.last];
     while (true && pos.from < text.length) {
       bool matched = false;
       for (final parse in statetokens) {
         final pattern = parse.pattern;
-        final token = parse.token;
+        final token = parse is JParse ? parse.dtoken : parse.token;
         final newStates = parse.newStates;
         if (token == Token.IncludeOtherLexer) {
           RegexLexer lexer = (parse as LexerParse).lexer;
@@ -218,7 +229,9 @@ abstract class RegexLexer extends Lexer {
         if (m != null) {
           if (token != null && m.group(0).isNotEmpty) {
             if (token == Token.ParseByGroups) {
-              ret.addAll(this._bygroup(m, parse.groupTokens,
+              ret.addAll(this._bygroup(
+                  m,
+                  parse.groupTokens ?? (parse as GroupJParse).groupDTokens,
                   statestack.isEmpty ? root : statestack.last));
             } else {
               ret.add(UnprocessedToken(pos.from, token, m.group(0),
@@ -439,7 +452,7 @@ abstract class RegexLexer extends Lexer {
   }
 
   // Callback that yields multiple actions for each group in the match.
-  Iterable<UnprocessedToken> _bygroup(Match m, Iterable<Token> tokens,
+  Iterable<UnprocessedToken> _bygroup(Match m, Iterable<Object> tokens,
       [String stateName]) sync* {
     int groupIdx = 1;
     int pos = m.start;
@@ -481,9 +494,9 @@ abstract class RegexLexer extends Lexer {
     }
   }
 
-  Map<String, List<Parse>> _merge(
-      Map<String, List<Parse>> merge1, Map<String, List<Parse>> merge2) {
-    final merged = Map<String, List<Parse>>();
+  Map<String, List<T>> _merge(
+      Map<String, List<T>> merge1, Map<String, List<T>> merge2) {
+    final merged = Map<String, List<T>>();
     if (merge1 != null && merge1.isNotEmpty) {
       for (final entry in merge1.entries) {
         merged[entry.key] = entry.value;
@@ -497,9 +510,9 @@ abstract class RegexLexer extends Lexer {
     return merged;
   }
 
-  Map<String, List<Parse>> _expand(Map<String, List<Parse>> parsesMap) {
-    final expanded = Map<String, List<Parse>>();
-    Iterable<Parse> expandList(List<Parse> parses) sync* {
+  Map<String, List<T>> _expand(Map<String, List<T>> parsesMap) {
+    final expanded = Map<String, List<T>>();
+    Iterable<T> expandList(List<T> parses) sync* {
       for (final p in parses) {
         if (p.token == Token.IncludeOtherParse) {
           yield* expandList(parsesMap[p.pattern]);
@@ -516,7 +529,7 @@ abstract class RegexLexer extends Lexer {
   }
 }
 
-abstract class DTokenedRegexLexer extends RegexLexer {
+abstract class DTokenedRegexLexer extends RegexLexer<JParse> {
   DTokenedRegexLexer({
     stripnl = true,
     stripall = false,

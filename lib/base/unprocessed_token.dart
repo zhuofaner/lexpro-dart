@@ -2,25 +2,50 @@ import 'package:equatable/equatable.dart';
 import 'package:lexpro/base/token.dart';
 
 class UnprocessedToken extends Equatable {
-  UnprocessedToken(this.pos, this.token, this.match,
-      [this.stateName, this.debuggable, this.dtoken])
-      : super([pos, token, match]);
+  const UnprocessedToken(
+    this.pos,
+    this.token,
+    this.match, [
+    this.stateName,
+    this.debuggable,
+  ]);
   final int pos;
-  final Token token;
-  final DynamicToken dtoken;
+
+  ///
+  /// Token or DynamicToken
+  final Object token;
+  // final DynamicToken dtoken;
   final String match;
   final String stateName;
   final bool debuggable;
 
+  String get tokenName {
+    return isDynamic
+        ? (token as DynamicToken).name
+        : token.toString().substring(6);
+  }
+
+  bool get isDynamic {
+    return token is DynamicToken;
+  }
+
   String toString() {
     if (debuggable == true) {
-      return 'UnprocessedToken($pos, $token, \'${_stringifyMatch(match)}\', \'$stateName\')';
-    } else
-      return 'UnprocessedToken($pos, $token, \'${_stringifyMatch(match)}\')';
+      return 'UnprocessedToken($pos, $tokenName, \'${_stringifyMatch(match)}\', \'$stateName\')';
+    } else {
+      return 'UnprocessedToken($pos, $tokenName, \'${_stringifyMatch(match)}\')';
+    }
+  }
+
+  String get prettyMatch {
+    if (match.contains('\n')) {
+      return match.replaceAll('\n', r"\n");
+    }
+    return match;
   }
 
   String pretty() {
-    return '$token(\'${_stringifyMatch(match)}\')';
+    return '$tokenName(\'${_stringifyMatch(match)}\')';
   }
 
   String _stringifyMatch(String match) {
@@ -28,4 +53,7 @@ class UnprocessedToken extends Equatable {
     if (match == "'") return "\\'";
     return match;
   }
+
+  @override
+  List<Object> get props => [pos, token, match];
 }
