@@ -20,9 +20,9 @@ dynamic RegstrInvoke(String invokeFrom, List<List<dynamic>> patternMappers,
         ? groupPureOrLinkCapture(invokeFrom, singleRule[0], singleRule[2])
         : null;
     if (rem != null) {
-      groupValue(v) => (v is int && v > 0 && v <= maxCount
+      groupValue(v) => (v is int && v > 0
           ? (isPureOrLink ? groupPureOrLink[v] : rem.group(v))
-          : '$v');
+          : v);
       if (invoker == null) {
         return singleRule[1].map((v) => groupValue(v)).toList();
       } else {

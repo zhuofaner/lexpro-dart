@@ -4,6 +4,7 @@ import 'package:lexpro/base/token.dart';
 import 'package:lexpro/base/types.dart';
 import 'package:lexpro/base/unprocessed_token.dart';
 import 'package:lexpro/utils/poprouter.dart';
+import 'package:lexpro/utils/tools.dart';
 
 export 'package:lexpro/base/token.dart';
 export 'package:lexpro/base/types.dart';
@@ -386,48 +387,48 @@ abstract class RegexLexer extends Lexer {
 
       /// end add by jackyanjiaqi.
     } else if (stateOrAction.startsWith("#on:")) {
-      List<List<dynamic>> rules = [
+      List<List<dynamic>> rules1 = [
         [
           r'#on:(.*)#pop:(.*)#do:\{(.*)\}#else:\{(.*)\}',
-          [1, 2, 3, 4]
+          [statestack, 1, 2, 3, 4]
         ],
         [
           r'#on:(.*)#pop:(.*)#do:\{(.*)\}',
-          [1, 2, 3, null]
+          [statestack, 1, 2, 3, null]
         ],
         [
           r'#on:(.*)#pop:(.*)#else:\{(.*)\}',
-          [1, 2, null, 3]
+          [statestack, 1, 2, null, 3]
         ],
         [
           r'#on:(.*)#pop:(.*)',
-          [1, 2, null, null]
+          [statestack, 1, 2, null, null]
         ],
         [
           r'#on:(.*)#do:\{(.*)\}#else:\{(.*)\}',
-          [1, null, 2, 3]
+          [statestack, 1, null, 2, 3]
         ],
         [
           r'#on:(.*)#do:\{(.*)\}',
-          [1, null, 2, null]
+          [statestack, 1, null, 2, null]
         ],
         [
           r'#on:(.*)#else:\{(.*)\}',
-          [1, null, null, 2]
+          [statestack, 1, null, null, 2]
         ],
       ];
-      for (List singleRule in rules) {
-        RegExpMatch rem = RegExp(singleRule[0]).matchAsPrefix(stateOrAction);
-        if (rem != null) {
-          groupValue(v) => v != null ? rem.group(v) : null;
-          return this._onPopDoElse(
-              statestack,
-              groupValue(singleRule[1][0]),
-              groupValue(singleRule[1][1]),
-              groupValue(singleRule[1][2]),
-              groupValue(singleRule[1][3]));
-        }
-      }
+
+      /// Simple Rules But Need More Test
+      // List<List<dynamic>> rules2 = [
+      //   [
+      //     r'#on:(.*)(#pop:(.*)|#do:\{(.*)\}|#else:\{(.*)\})+?',
+      //     [statestack, 1, 3, 4, 5],
+      //     {
+      //       2: [3, 4, 5]
+      //     }
+      //   ]
+      // ];
+      return RegstrInvoke(stateOrAction, rules1, invoker: _onPopDoElse);
     } else {
       statestack.add(stateOrAction);
       if (debuggable == true) print(statestack);

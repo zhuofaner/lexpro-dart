@@ -89,7 +89,7 @@ void main() {
           RegstrInvoke('exec _path:"root/mine" _all:"yes"', rules,
               invoker: cmlexec),
           equals('cmlexec:\n'
-              '-p root/mine -a'));
+              ' -p root/mine -a'));
       expect(
           RegstrInvoke(
               'execTempAll( _vers:"1.0.5+3" _help:"yes" _verb:"yes")', rules,
