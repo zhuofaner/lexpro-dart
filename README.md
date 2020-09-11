@@ -1,7 +1,9 @@
 # lexpro
 If picture can not be seen, read me at [github](https://github.com/zhuofaner/lexpro-dart).
 
-Lexers for different languages in Dart with Regular Expressions adapted from
+You can also learn from `example.dart`, it's so easy and full with comments.
+
+Intro: Lexers for different languages in Dart with Regular Expressions adapted from
  the awesome [pygments](https://pygments.org) library.
 
  Edit and Add new features by [jackyanjiaqi](https://github.com/jackyanjiaqi)
