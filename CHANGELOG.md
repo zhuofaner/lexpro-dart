@@ -1,3 +1,5 @@
+## 1.1.0+1
+* bugs hotfix
 ## 1.1.0
 * support **DynamicToken** which you can define your own Token.
 * support **DynamicToken.from** to create from a exist Token like `DynamicToken.from(Token.Text)`, and they are equal in operator '=='
