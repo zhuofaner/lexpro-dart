@@ -2,6 +2,9 @@
 # System Files
 .DS_Store
 
+# Plugin VSCodeCounter
+.VSCodeCounter
+
 # Files and directories created by pub
 .dart_tool/
 .packages
