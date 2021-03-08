@@ -1,3 +1,4 @@
+// @dart=2.9
 import 'package:lexpro/base/lexer.dart';
 
 // For `CoffeeScript`_ source code. http://coffeescript.org

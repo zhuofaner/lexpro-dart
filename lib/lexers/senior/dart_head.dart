@@ -1,3 +1,5 @@
+// @dart=2.9
+
 import 'package:lexpro/base/lexer.dart';
 import 'package:lexpro/lexers/senior/dart_head_import.dart';
 

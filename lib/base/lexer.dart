@@ -1,3 +1,4 @@
+// @dart=2.9
 import 'package:lexpro/base/token.dart';
 import 'package:lexpro/base/types.dart';
 import 'package:lexpro/base/unprocessed_token.dart';
@@ -168,7 +169,56 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
             debuggable: debuggable);
   RegExpFlags get flags;
   Map<String, List<T>> get parses;
+
+  /// You don't have to merge like this
+  /// return { ...currentCommon, [your Def]: bla bla bla}
+  /// just give your own lib common parse rules
+  /// => { [your Def]: bla bla bla }
+  /// currentCommon is for you to check what have been loaded if Needed.
   Map<String, List<T>> commonparses(Map<String, List<T>> currentCommon);
+  List<String> correcting({String tText, String stateName}) {
+    List<String> recommands = [];
+    _addFromParses(parses) {
+      parses[stateName]?.whereType<JParse>()?.forEach((element) {
+        // part1: from parsing rules -> JParse.constants;
+        if (element.isConst)
+          recommands.addAll(enumAllConstants(element.constants));
+        // part2: from Token.Enum Given Values
+        if (element is GroupJParse) {
+          element.groupDTokens.forEach((dTk) {
+            if (dTk.isEnum && dTk.enums.isNotEmpty) {
+              recommands.addAll(dTk.enums);
+            }
+          });
+        } else if (element is JParse) {
+          var dTk = element.dtoken;
+          if (dTk.isEnum && dTk.enums.isNotEmpty) {
+            recommands.addAll(dTk.enums);
+          }
+        }
+      });
+    }
+
+    _addFromParses(parses ?? []);
+    // avoid putting JParse.constants and DToken.enum into commonparses,hard to find parent parses, context lost.
+    _addFromParses(commonparses(null) ?? []);
+    // part3: from all unproccessedTokens with Enum matched value
+    // who has a named or nonenamed Enum Type which == Token.Enum
+    DynamicToken dTk;
+    _tokensUnprocessed.forEach((uTk) {
+      if (uTk.isDynamic &&
+          (dTk = uTk.token as DynamicToken).isEnum &&
+          dTk.enums.isEmpty) {
+        recommands.add(uTk.match);
+      }
+    });
+    if (tText != null) {
+      return recommands
+        ..retainWhere((element) => RegExp(tText).hasMatch(element));
+    } else
+      return recommands;
+  }
+
   String pretty(String text,
       [List<String> stack, Position pos, Map<String, List<Parse>> commondefs]) {
     return processedString(
@@ -182,6 +232,7 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
   // The get_tokens_unprocessed() method must return an iterator or iterable
   // containing tuples in the form (index, token, value).
   // Stream<Tuple2<index, token, value>>
+  List<UnprocessedToken> _tokensUnprocessed;
   Iterable<UnprocessedToken> getTokensUnprocessed(String text,
       [List<String> stack, Position pos, Map<String, List<T>> commondefs]) {
     var ret = <UnprocessedToken>[];
@@ -202,7 +253,8 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
         final token = parse is JParse ? parse.dtoken : parse.token;
         final newStates = parse.newStates;
         if (token == Token.IncludeOtherLexer) {
-          RegexLexer lexer = (parse as LexerParse).lexer;
+          RegexLexer lexer =
+              parse is LexerJParse ? parse.lexer : (parse as LexerParse).lexer;
           statestack.add(lexer.root);
           var pos_before = pos.from;
           Iterable<UnprocessedToken> res =
@@ -278,7 +330,7 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
         }
       }
     }
-    return ret;
+    return _tokensUnprocessed = ret;
   }
 
   Iterable<UnprocessedToken> _getTokensUnprocessed(String text,
@@ -497,12 +549,12 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
   Map<String, List<T>> _merge(
       Map<String, List<T>> merge1, Map<String, List<T>> merge2) {
     final merged = Map<String, List<T>>();
-    if (merge1 != null && merge1.isNotEmpty) {
+    if (merge1?.isNotEmpty ?? false) {
       for (final entry in merge1.entries) {
         merged[entry.key] = entry.value;
       }
     }
-    if (merge2 != null && merge2.isNotEmpty) {
+    if (merge2?.isNotEmpty ?? false) {
       for (final entry in merge2.entries) {
         merged[entry.key] = entry.value;
       }
@@ -527,6 +579,224 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
     }
     return expanded;
   }
+}
+
+class LexerMain extends RegexLexer<JParse> {
+  static LexerMain _instance = LexerMain._();
+  LexerMain._() : super(debuggable: true);
+  List<LibraryLexer> _libraries;
+  String _rootState;
+  RegexLexer _root;
+
+  static LexerMain load({List<LibraryLexer> libraries, RegexLexer root}) {
+    return _instance
+      ..loadLirbraries(libraries)
+      ..rootLexer(root);
+  }
+
+  loadLirbraries(List<LibraryLexer> libraries) {
+    _libraries = libraries ?? _libraries;
+  }
+
+  rootLexer(RegexLexer root) {
+    _root = root ?? _root;
+  }
+
+  rootState(String rstate) {
+    _rootState = rstate ?? _rootState;
+  }
+
+  @override
+  Map<String, List<JParse>> commonparses(
+          Map<String, List<JParse>> currentCommon) =>
+      currentCommon;
+
+  @override
+  RegExpFlags get flags => _root?.flags;
+
+  @override
+  Map<String, List<JParse>> get parses {
+    assert(_root != null || _rootState != null);
+    if (_libraries != null && _libraries.isNotEmpty) {
+      _libraries[0]
+        ..loadNext(_root)
+        ..loadRoot(_rootState);
+      LibraryLexer main =
+          _libraries.reduce((value, element) => element..loadNext(value));
+      return {
+        'main': [
+          JParse.lexer(main, [POP])
+        ]
+      };
+    } else {
+      return {
+        'main': [
+          JParse.lexer(_root, [POP])
+        ]
+      };
+    }
+  }
+
+  @override
+  String get root => 'main';
+
+  dependencyAnalyze() {
+    Map<String, Object> defined = {};
+    Map<String, List> undefined = {};
+    _oSymbol(Object o) => '${o.runtimeType}(${o.hashCode})';
+    if (_libraries != null && _libraries.isNotEmpty) {
+      _libraries.reversed.forEach((element) {
+        Map<String, List> d =
+            defined[_oSymbol(element)] = {'override': [], 'unused': []};
+        var it = element.commonparses(null);
+        it.keys.forEach((state) {
+          if (defined.keys.contains(state)) {
+            var oldElement = defined[state];
+            print(
+                'WARNING:${_oSymbol(element)} defined a override state $state already defined in $oldElement\n');
+            (defined[oldElement] as Map<String, List>)['override'].add(state);
+            (defined[oldElement] as Map<String, List>)['unused'].remove(state);
+            defined[state] = _oSymbol(element);
+            (defined[_oSymbol(element)] as Map<String, List>)['unused']
+                .add(state);
+          } else {
+            defined[state] = _oSymbol(element);
+            (defined[_oSymbol(element)] as Map<String, List>)['unused']
+                .add(state);
+          }
+        });
+      });
+      _libraries.reversed.forEach((element) {
+        undefined[_oSymbol(element)] = [];
+        var it = element.commonparses(null);
+        it.values.forEach((e) {
+          e.forEach((parser) {
+            if (parser.newStates?.isNotEmpty ?? false) {
+              parser.newStates.forEach((jump) {
+                if (RegExp(r'#(on|pop|push|clear|break)').matchAsPrefix(jump) !=
+                    null) return;
+                if (defined[jump] == null) {
+                  undefined[_oSymbol(element)].add(jump);
+                } else {
+                  var usedElement = defined[jump];
+                  (defined[usedElement] as Map<String, List>)['unused']
+                      .remove(jump);
+                }
+              });
+            }
+          });
+        });
+      });
+      String out = "";
+      undefined.keys.forEach((key) => out += '$key >> ');
+      out += 'root';
+      print('''Loading order:
+===================
+$out
+===================
+
+''');
+      // undefined;
+      out = "";
+      int total = 0;
+      undefined.forEach((key, value) {
+        if (value.isNotEmpty) {
+          value.forEach((element) {
+            out += '$key:$element\n';
+            total++;
+          });
+        }
+      });
+      if (out.isNotEmpty) {
+        print('''Undefined states:
+===================
+$out
+===================
+total: ${total}
+
+''');
+      }
+      // override;
+      out = "";
+      total = 0;
+      undefined.keys.forEach((key) {
+        Map<String, List> c = defined[key];
+        if (c['override'].isNotEmpty) {
+          c['override'].forEach((value) {
+            out += '$key:$value\n';
+            total++;
+          });
+        }
+      });
+      if (out.isNotEmpty) {
+        print('''Override states:
+===================
+$out
+===================
+total: ${total}
+
+''');
+      }
+      //
+      out = "";
+      total = 0;
+      undefined.keys.forEach((key) {
+        Map<String, List> c = defined[key];
+        if (c['unused'].isNotEmpty) {
+          c['unused'].forEach((value) {
+            out += '$key:$value\n';
+            total++;
+          });
+        }
+      });
+      if (out.isNotEmpty) {
+        print('''Unused states:
+===================
+$out
+===================
+total: ${total}
+
+''');
+      }
+      if (debuggable) {
+        print('\n$defined\n$undefined');
+      }
+    }
+  }
+}
+
+abstract class LibraryLexer extends RegexLexer<JParse> {
+  RegexLexer _next;
+  String _root;
+  loadNext(RegexLexer next) {
+    _next = next;
+  }
+
+  loadRoot(String root) {
+    _root = root ?? _root;
+  }
+
+  String get symbolInSys => '$hashCode';
+
+  @override
+  RegExpFlags get flags =>
+      _next?.flags ??
+      RegExpFlags(
+        dotAll: true,
+        multiline: true,
+      );
+
+  @override
+  Map<String, List<JParse>> get parses => _next != null
+      ? {
+          symbolInSys: [
+            JParse.lexer(_next, [CLEAR, _next.root])
+          ]
+        }
+      : null;
+
+  @override
+  String get root => _next != null ? symbolInSys : _root;
 }
 
 abstract class DTokenedRegexLexer extends RegexLexer<JParse> {

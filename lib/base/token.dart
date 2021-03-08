@@ -1,5 +1,6 @@
-import 'package:equatable/equatable.dart';
+// @dart=2.9
 import 'package:lexpro/base/lexer.dart';
+import 'package:lexpro/utils/tools.dart';
 
 enum Token {
   Text,
@@ -96,7 +97,9 @@ enum Token {
   GenericSubheading,
   GenericTraceback,
 
-// Special
+  //add for enum
+  Enum,
+  // Special
   IncludeOtherParse,
   ParseByGroups,
   RecurseSameLexer,
@@ -109,7 +112,15 @@ enum Token {
 /// easy for users to define their own Tokens
 class DynamicToken {
   final String name;
-  const DynamicToken(this.name);
+  // Given constant right examples belongs to this token.
+  // These values are list for literal-error-correcting.
+  final List<String> enums;
+  bool get isEnum => enums != null;
+  const DynamicToken(this.name, [this.enums = null]);
+  factory DynamicToken.fromEnum(List<String> options, {String enumName}) =>
+      DynamicToken(enumName ?? Token.Enum.toString().substring(6), options);
+  factory DynamicToken.asEnum([String name]) =>
+      DynamicToken(name ?? Token.Enum.toString().substring(6), []);
   factory DynamicToken.from(Token enumToken) =>
       DynamicToken(enumToken.toString().substring(6));
   Token get token {
@@ -124,6 +135,9 @@ class DynamicToken {
 
   @override
   String toString() {
+    if (isEnum && enums.isNotEmpty) {
+      return 'Token.$name(${(enums..sort()).join('|')})';
+    }
     return 'Token.$name';
   }
 }
@@ -194,17 +208,28 @@ class Parse {
 }
 
 class JParse extends Parse {
-  JParse(
-    String pattern,
-    this.dtoken, [
-    newStates = null,
-  ]) : super(pattern, dtoken.token, newStates);
+  JParse(String pattern, this.dtoken, [newStates = null, this.constants = null])
+      : super(pattern, dtoken.token, newStates);
 
   final DynamicToken dtoken;
+  List<List<String>> constants;
+  bool get isConst => constants != null;
   Token get token => dtoken.token;
 
   factory JParse.include(String s) =>
       JParse(s, DynamicToken.from(Token.IncludeOtherParse));
+
+  factory JParse.constants(
+    List<List<String>> constants,
+    DynamicToken dtoken, [
+    newStates = null,
+  ]) =>
+      JParse(const2Pattern(constants), dtoken, newStates, constants);
+
+  factory JParse.constingroups(String pattern, List<List<String>> constants,
+          List<DynamicToken> tokens, [List<String> nextState]) =>
+      GroupJParse(pattern.replaceFirst('(..)', const2Pattern(constants)),
+          tokens, nextState, constants);
 
   factory JParse.bygroups(
     String pattern,
@@ -215,7 +240,8 @@ class JParse extends Parse {
 
   factory JParse.empty(List<String> nextState) =>
       JParse('', DynamicToken.from(Token.Text), nextState);
-  factory JParse.lexer(Lexer lexer) => LexerJParse(lexer);
+  factory JParse.lexer(Lexer lexer, [List<String> nextState]) =>
+      LexerJParse(lexer, nextState);
 }
 
 // Yields multiple actions for each group in the match.
@@ -230,11 +256,10 @@ class GroupParse extends Parse {
 }
 
 class GroupJParse extends JParse {
-  GroupJParse(
-    String pattern,
-    this.groupDTokens, [
-    List<String> newStates = null,
-  ]) : super(pattern, DynamicToken.from(Token.ParseByGroups), newStates);
+  GroupJParse(String pattern, this.groupDTokens,
+      [List<String> newStates = null, List<List<String>> constants = null])
+      : super(pattern, DynamicToken.from(Token.ParseByGroups), newStates,
+            constants);
 
   final List<DynamicToken> groupDTokens;
 }

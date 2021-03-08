@@ -1,3 +1,4 @@
+// @dart=2.9
 // ignore_for_file: non_constant_identifier_names
 import 'package:lexpro/base/lexer.dart';
 import 'package:lexpro/unistring.dart';

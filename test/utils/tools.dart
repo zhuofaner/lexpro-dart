@@ -1,3 +1,4 @@
+// @dart=2.9
 import 'package:lexpro/utils/tools.dart';
 import 'package:test/test.dart';
 
@@ -100,6 +101,62 @@ void main() {
           RegstrInvoke('execTempOnLatestVersion\;', rules, invoker: cmlexec),
           equals('cmlexec:\n'
               ' -p temp/exec -v latest'));
+    });
+  });
+  List<List<String>> constants = [
+    ['bgcolor', 'color', 'strokecolor'],
+    ['="', '_', ''],
+    ['red', 'green', 'blue', 'yellow']
+  ];
+  group('Utils.enumAllConstants', () {
+    test('1', () {
+      expect(
+          enumAllConstants(constants),
+          equals([
+            'bgcolor="red',
+            'bgcolor="green',
+            'bgcolor="blue',
+            'bgcolor="yellow',
+            'bgcolor_red',
+            'bgcolor_green',
+            'bgcolor_blue',
+            'bgcolor_yellow',
+            'bgcolorred',
+            'bgcolorgreen',
+            'bgcolorblue',
+            'bgcoloryellow',
+            'color="red',
+            'color="green',
+            'color="blue',
+            'color="yellow',
+            'color_red',
+            'color_green',
+            'color_blue',
+            'color_yellow',
+            'colorred',
+            'colorgreen',
+            'colorblue',
+            'coloryellow',
+            'strokecolor="red',
+            'strokecolor="green',
+            'strokecolor="blue',
+            'strokecolor="yellow',
+            'strokecolor_red',
+            'strokecolor_green',
+            'strokecolor_blue',
+            'strokecolor_yellow',
+            'strokecolorred',
+            'strokecolorgreen',
+            'strokecolorblue',
+            'strokecoloryellow',
+          ]));
+    });
+  });
+
+  group('Utils.const2Pattern', () {
+    test('1', () {
+      expect(const2Pattern(constants),
+          equals('(bgcolor|color|strokecolor)(="|_)?(red|green|blue|yellow)'));
     });
   });
 }

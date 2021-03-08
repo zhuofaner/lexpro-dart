@@ -1,3 +1,4 @@
+// @dart=2.9
 import 'package:lexpro/base/token.dart';
 import 'package:lexpro/base/unprocessed_token.dart';
 import 'package:lexpro/lexers/senior/dart_head.dart';

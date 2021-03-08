@@ -1,3 +1,5 @@
+// @dart=2.9
+
 import 'package:lexpro/base/lexer.dart';
 
 DynamicToken BLANK = DynamicToken.from(Token.Text);

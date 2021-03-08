@@ -1,6 +1,6 @@
 /// maxCount support upto 10.
 dynamic RegstrInvoke(String invokeFrom, List<List<dynamic>> patternMappers,
-    {int maxCount, Function invoker}) {
+    {int? maxCount, Function? invoker}) {
   if (patternMappers.isNotEmpty) {
     assert(patternMappers[0].length >= 2);
     assert(patternMappers[0][1] is Iterable);
@@ -15,13 +15,14 @@ dynamic RegstrInvoke(String invokeFrom, List<List<dynamic>> patternMappers,
   }
   for (List singleRule in patternMappers) {
     bool isPureOrLink = singleRule.length > 2;
-    RegExpMatch rem = RegExp(singleRule[0]).matchAsPrefix(invokeFrom);
-    List<String> groupPureOrLink = isPureOrLink
+    RegExpMatch? rem =
+        RegExp(singleRule[0]).matchAsPrefix(invokeFrom) as RegExpMatch?;
+    List<String?>? groupPureOrLink = isPureOrLink
         ? groupPureOrLinkCapture(invokeFrom, singleRule[0], singleRule[2])
         : null;
     if (rem != null) {
       groupValue(v) => (v is int && v > 0
-          ? (isPureOrLink ? groupPureOrLink[v] : rem.group(v))
+          ? (isPureOrLink ? groupPureOrLink![v] : rem.group(v))
           : v);
       if (invoker == null) {
         return singleRule[1].map((v) => groupValue(v)).toList();
@@ -113,27 +114,28 @@ dynamic RegstrInvoke(String invokeFrom, List<List<dynamic>> patternMappers,
 ///   3 : [4,5,6],
 ///   8 : [9,10,11]
 /// }
-groupPureOrLinkCapture(String string,
-    [String pattern, Map<int, List<int>> pureOrLinkGroupIndexs]) {
-  assert(pattern?.contains("?") == true);
+List<String?>? groupPureOrLinkCapture(
+    String string, String pattern, Map<int, List<int>> pureOrLinkGroupIndexs) {
+  assert(pattern.contains("?") == true);
   String target = string;
-  RegExpMatch m = RegExp(pattern).matchAsPrefix(target);
-  List<String> groups;
+  RegExpMatch? m = RegExp(pattern).matchAsPrefix(target) as RegExpMatch?;
+  List<String?>? groups;
   while (m != null
       // && replaceGroupIndexs.any((index) => m.group(index) != null) == true
       ) {
     groups = groups ?? m.groups(genIndices(m.groupCount));
-    assert(pureOrLinkGroupIndexs?.entries != null);
+    // assert(pureOrLinkGroupIndexs.entries != null);
     pureOrLinkGroupIndexs.entries.forEach((MapEntry<int, List<int>> replaced) {
-      var rplc = m.group(replaced.key);
+      var rplc = m!.group(replaced.key);
       if (rplc != null) {
         replaced.value.forEach((refreshIndex) {
-          groups[refreshIndex] = groups[refreshIndex] ?? m.group(refreshIndex);
+          groups![refreshIndex] =
+              groups[refreshIndex] ?? m!.group(refreshIndex);
         });
         target = target.replaceFirst(rplc, "");
       }
     });
-    m = RegExp(pattern).matchAsPrefix(target);
+    m = RegExp(pattern).matchAsPrefix(target) as RegExpMatch?;
   }
   return groups;
 }
@@ -144,4 +146,28 @@ List<int> genIndices(int count) {
     ret.add(i);
   }
   return ret;
+}
+
+List<String> enumAllConstants(List<List<String>> constantRules) {
+  var res = constantRules.reduce((value, element) {
+    return value
+        .expand<String>((innerValue) =>
+            element.map<String>((innerElement) => innerValue + innerElement))
+        .toList();
+  });
+  return res;
+}
+
+String const2Pattern(List<List<String>> constantRules) {
+  return constantRules.whereType<List<String>>().map((element) {
+    List<String> orparts = <String>[]..addAll(element);
+    bool blankAllowed = false;
+    orparts.removeWhere((element) {
+      return element.isEmpty && (blankAllowed = true);
+    });
+    if (orparts.isNotEmpty) {
+      return '(' + orparts.join('|') + ')' + (blankAllowed ? '?' : '');
+    } else
+      return "";
+  }).join();
 }

@@ -1,3 +1,4 @@
+// @dart=2.9
 // For `TypeScript http://typescriptlang.org/` source code.
 import 'package:lexpro/base/lexer.dart';
 import 'package:lexpro/lexers/javascript.dart';

@@ -1,3 +1,4 @@
+// @dart=2.9
 import 'package:lexpro/lexers/javascript.dart';
 
 void main() {
