@@ -1,6 +1,6 @@
 // @dart=2.9
 import 'package:lexpro/base/lexer.dart';
-import 'package:lexpro/base/token.dart';
+import 'package:lexpro/base/parser.dart';
 import 'package:lexpro/base/types.dart';
 import 'package:lexpro/base/unprocessed_token.dart';
 import 'package:test/test.dart';

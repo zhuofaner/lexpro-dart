@@ -1,10 +1,12 @@
 // @dart=2.9
-import 'package:lexpro/base/token.dart';
+import 'dart:developer';
+
+import 'package:lexpro/base/parser.dart';
 import 'package:lexpro/base/types.dart';
 import 'package:lexpro/base/unprocessed_token.dart';
 import 'package:lexpro/utils/tools.dart';
 
-export 'package:lexpro/base/token.dart';
+export 'package:lexpro/base/parser.dart';
 export 'package:lexpro/base/types.dart';
 export 'package:lexpro/base/unprocessed_token.dart';
 export 'package:lexpro/utils/poprouter.dart';
@@ -169,6 +171,32 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
             debuggable: debuggable);
   RegExpFlags get flags;
   Map<String, List<T>> get parses;
+  Map<String, dynamic> config;
+
+  /// runtimeContext is the deepest context the parser can go.
+  /// each parser has two part of parsing rules. Single parses and Common parses.
+  /// if you nested lexer with another lexer use [JParse.lexer], the context go deeper.
+  /// Each parser's single parses is isolated but common parses will merge.
+  /// So the deeper goes the common parse becomes larger.That's what we want when searching
+  /// a certain state.
+  /// However the single part belongs to each parser. and the state name maybe conflict.
+  /// but that doesn't matter, Because when a parser is running,it automaticlly ignored other parsers' own defination.
+  /// When you start parsing from a LexerMain there's only one root Lexer and many LibrayLexers ,don't worry you'll lose any context.
+  Map<String, List<T>> _runtimeContext;
+
+  /// a cacheContext is only for those case expanding the same parse package.
+  /// the context stays inside of this parser and this will not cause conflict.
+  /// different parser has its own cacheContext, they should not be merged anytime for the risk of naming conflict.
+  Map<String, List<T>> _cacheContext = {};
+  bool get useCache => config?.containsKey('useCache') ?? false
+      ? (config['useCache'] as bool)
+      : true;
+  bool get configSaveRuntimeContext =>
+      config?.containsKey('savingRuntimeContext') ?? false;
+  List<Object> get configListTokenStateNames =>
+      config?.containsKey('stateWillListTokens') ?? false
+          ? config['stateWillListTokens'] as List
+          : null;
 
   /// You don't have to merge like this
   /// return { ...currentCommon, [your Def]: bla bla bla}
@@ -176,6 +204,58 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
   /// => { [your Def]: bla bla bla }
   /// currentCommon is for you to check what have been loaded if Needed.
   Map<String, List<T>> commonparses(Map<String, List<T>> currentCommon);
+
+  List<String> _enumAllGiven(DynamicToken enumToken, String stateName) {
+    assert(enumToken.isEnum == true);
+    if (enumToken.enums.isNotEmpty)
+      return enumToken.enums;
+    else {
+      return _tokensUnprocessed
+          .where((element) =>
+              enumToken.enumsEqual(element.token) &&
+              element.stateName == stateName)
+          .map<String>((e) => e.match)
+          .toList();
+    }
+  }
+
+  List<String> autoCompleting(String errorText, String stateName) {
+    assert(_runtimeContext != null);
+    List<RegExpMatch> matches = [];
+
+    /// step1: find matches;
+    _runtimeContext[stateName]?.whereType<JParse>()?.forEach((element) {
+      if (element.isConst && element is! GroupJParse) {
+        matches.addAll(enumAllMatches(errorText, element.constants));
+      } else if (element is GroupJParse &&
+          element.groupDTokens.any((dtoken) => dtoken.isEnum)) {
+        // print(element.pattern);
+        if (element.pattern.startsWith('(width')) debugger();
+        var constantRules = element.groupDTokens
+            .map<List<String>>((dtoken) => _enumAllGiven(dtoken, stateName))
+            .toList(growable: false);
+        matches.addAll(enumAllMatches(errorText, constantRules));
+      }
+    });
+    print(matches);
+    debugger();
+
+    /// step2: sort
+    /// 从左到右 -> 优先
+    /// start 小 ->
+    /// input.length 小 ->
+    matches
+      ..sort((left, right) {
+        if (left.start < right.start) {
+          return -1;
+        } else if (left.input.length < right.input.length) {
+          return -1;
+        }
+        return 1;
+      });
+    return matches.map((m) => m.input).toList();
+  }
+
   List<String> correcting({String tText, String stateName}) {
     List<String> recommands = [];
     _addFromParses(parses) {
@@ -199,9 +279,7 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
       });
     }
 
-    _addFromParses(parses ?? []);
-    // avoid putting JParse.constants and DToken.enum into commonparses,hard to find parent parses, context lost.
-    _addFromParses(commonparses(null) ?? []);
+    _addFromParses(_runtimeContext);
     // part3: from all unproccessedTokens with Enum matched value
     // who has a named or nonenamed Enum Type which == Token.Enum
     DynamicToken dTk;
@@ -225,6 +303,58 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
         unprocessedTokens: getTokensUnprocessed(text, stack, pos, commondefs));
   }
 
+  void configPrint() {
+    if (configListTokenStateNames == null || _tokensUnprocessed == null) return;
+    print('''
+
+States:
+=============================
+''');
+    int total = 0;
+    configListTokenStateNames.forEach((tokenObj) {
+      int byToken = 0;
+      print('''   ${tokenName(tokenObj)}:
+    =========================
+''');
+      _tokensUnprocessed.forEach((UnprocessedToken ut) {
+        if (tokenObj == ut.token ||
+            ut.token.toString() == 'Token.' + tokenName(tokenObj)) {
+          byToken++;
+          print('''   ${ut.stateName}:
+    ${ut.match}
+''');
+        }
+        // else {
+        //   print('\n');
+        //   print(ut.token.toString());
+        //   print(tokenName(tokenObj));
+        //   print('\n');
+        // }
+      });
+      String byTokenPadding = 'total: $byToken'.padLeft(25);
+      total += byToken;
+      print('''
+    =========================
+    $byTokenPadding
+''');
+    });
+    String totalPadding = 'total: $total'.padLeft(29);
+    print('''
+=============================
+$totalPadding
+''');
+  }
+
+  /// TODO: 自动补全通过缓存配置获得 暂时不需要静态获得了
+  /// 静态分析获得所有state的parsing tree
+  statesStaticAllExpand(String stateName, [Map<String, List<T>> commondefs]) {
+    /// merge common
+    // commondefs = _merge(commondefs, commonparses(commondefs));
+    // Map<String, Iterable<T>> parsedefs =
+    // /// merge all
+    // _expand(_merge(commondefs, parses));
+    // parsedefs.keys.contains
+  }
   // Split ``text`` into (token type, text) pairs.
   //
   // ``stack`` is the initial stack (default: ``[root]``)
@@ -244,6 +374,7 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
 
         /// merge all
         _expand(_merge(commondefs, parses));
+    _runtimeContext = configSaveRuntimeContext ? parsedefs : null;
     final List<String> statestack = stack ?? List.from([root]);
     List<T> statetokens = parsedefs[statestack.last];
     while (true && pos.from < text.length) {
@@ -255,10 +386,12 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
         if (token == Token.IncludeOtherLexer) {
           RegexLexer lexer =
               parse is LexerJParse ? parse.lexer : (parse as LexerParse).lexer;
+          lexer.config = config;
           statestack.add(lexer.root);
           var pos_before = pos.from;
           Iterable<UnprocessedToken> res =
               lexer.getTokensUnprocessed(text, statestack, pos, commondefs);
+          _runtimeContext = lexer._runtimeContext;
           ret.addAll(res);
           if (pos.from > pos_before) {
             matched = true;
@@ -575,7 +708,16 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
     }
 
     for (final entry in parsesMap.entries) {
-      expanded[entry.key] = expandList(entry.value).toList();
+      if (useCache) {
+        _cacheContext ??= {};
+        if (_cacheContext.containsKey(entry.key)) {
+          expanded[entry.key] = _cacheContext[entry.key];
+        } else {
+          expanded[entry.key] = expandList(entry.value).toList();
+          _cacheContext[entry.key] = expanded[entry.key];
+        }
+      } else
+        expanded[entry.key] = expandList(entry.value).toList();
     }
     return expanded;
   }
@@ -671,12 +813,27 @@ class LexerMain extends RegexLexer<JParse> {
         var it = element.commonparses(null);
         it.values.forEach((e) {
           e.forEach((parser) {
-            if (parser.newStates?.isNotEmpty ?? false) {
+            // 检查包含关系
+            if (parser.token == Token.IncludeOtherParse) {
+              // 包含未定义
+              if (defined[parser.pattern] == null) {
+                undefined[_oSymbol(element)].add(parser.pattern);
+                // 包含已定义
+              } else {
+                var usedElement = defined[parser.pattern];
+                (defined[usedElement] as Map<String, List>)['unused']
+                    .remove(parser.pattern);
+              }
+              // 检查跳转关系
+            } else if (parser.newStates?.isNotEmpty ?? false) {
               parser.newStates.forEach((jump) {
+                // 排除跳转动作
                 if (RegExp(r'#(on|pop|push|clear|break)').matchAsPrefix(jump) !=
                     null) return;
+                // 跳转未定义
                 if (defined[jump] == null) {
                   undefined[_oSymbol(element)].add(jump);
+                  // 跳转已定义
                 } else {
                   var usedElement = defined[jump];
                   (defined[usedElement] as Map<String, List>)['unused']
@@ -690,11 +847,11 @@ class LexerMain extends RegexLexer<JParse> {
       String out = "";
       undefined.keys.forEach((key) => out += '$key >> ');
       out += 'root';
-      print('''Loading order:
-===================
+      print('''
+Loading order:
+=============================
 $out
-===================
-
+=============================
 ''');
       // undefined;
       out = "";
@@ -708,11 +865,13 @@ $out
         }
       });
       if (out.isNotEmpty) {
-        print('''Undefined states:
-===================
+        String totalPadding = 'total: $total'.padLeft(29);
+        print('''
+Undefined states:
+=============================
 $out
-===================
-total: ${total}
+=============================
+$totalPadding
 
 ''');
       }
@@ -729,11 +888,12 @@ total: ${total}
         }
       });
       if (out.isNotEmpty) {
+        String totalPadding = 'total: $total'.padLeft(29);
         print('''Override states:
-===================
+=============================
 $out
-===================
-total: ${total}
+=============================
+$totalPadding
 
 ''');
       }
@@ -750,11 +910,12 @@ total: ${total}
         }
       });
       if (out.isNotEmpty) {
+        String totalPadding = 'total: $total'.padLeft(29);
         print('''Unused states:
-===================
+=============================
 $out
-===================
-total: ${total}
+=============================
+$totalPadding
 
 ''');
       }

@@ -1,3 +1,5 @@
+import 'package:lexpro/base/token.dart';
+
 /// maxCount support upto 10.
 dynamic RegstrInvoke(String invokeFrom, List<List<dynamic>> patternMappers,
     {int? maxCount, Function? invoker}) {
@@ -148,12 +150,42 @@ List<int> genIndices(int count) {
   return ret;
 }
 
+// TODO: UNFINISHED
+// can remember where matches;
+smartMatch(String text, List<List<String>> constantRules,
+    [List<List<RegExpMatch>>? matched]) {
+  for (List<String> rules in constantRules) {
+    rules.forEach((pattern) {
+      if (text.length < pattern.length) {
+        // RegExp(pattern).firstMatch()
+      }
+    });
+  }
+}
+
+List<RegExpMatch> enumAllMatches(
+    String text, List<List<String>> constantRules) {
+  List<RegExpMatch> res = [];
+  enumAllConstants(constantRules).forEach((rule) {
+    RegExpMatch? m;
+    if ((m = RegExp(text).firstMatch(rule)) != null) {
+      res.add(m!);
+    }
+  });
+  return res;
+}
+
 List<String> enumAllConstants(List<List<String>> constantRules) {
   var res = constantRules.reduce((value, element) {
-    return value
-        .expand<String>((innerValue) =>
-            element.map<String>((innerElement) => innerValue + innerElement))
-        .toList();
+    if (value.isEmpty)
+      return element;
+    else if (element.isEmpty)
+      return value;
+    else
+      return value
+          .expand<String>((innerValue) =>
+              element.map<String>((innerElement) => innerValue + innerElement))
+          .toList();
   });
   return res;
 }
@@ -170,4 +202,25 @@ String const2Pattern(List<List<String>> constantRules) {
     } else
       return "";
   }).join();
+}
+
+String tokenName(Object? token) {
+  if (token is DynamicToken) {
+    return token.name;
+  } else if (token is Token) {
+    return token.toString().substring(6);
+  } else
+    return token.toString();
+}
+
+String enumTokenName(Object? token) {
+  token ??= Token.Enum;
+  String name;
+  if (token is DynamicToken) {
+    name = token.name;
+  } else if (token is Token) {
+    name = token.toString().substring(6);
+  } else
+    name = token.toString();
+  return name;
 }

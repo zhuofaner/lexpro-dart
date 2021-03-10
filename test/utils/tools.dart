@@ -1,4 +1,6 @@
 // @dart=2.9
+import 'dart:math';
+
 import 'package:lexpro/utils/tools.dart';
 import 'package:test/test.dart';
 
@@ -150,6 +152,27 @@ void main() {
             'strokecolorblue',
             'strokecoloryellow',
           ]));
+    });
+    test('2', () {
+      expect(
+          enumAllConstants([
+            ['1', '2', '3', '4'],
+            [],
+            [],
+            []
+          ]),
+          equals(['1', '2', '3', '4']));
+    });
+    test('3', () {
+      expect(
+          enumAllConstants([
+            [],
+            ['1', '2', '3', '4'],
+            [],
+            ['sad', 'on'],
+            []
+          ]),
+          equals(['1sad', '1on', '2sad', '2on', '3sad', '3on', '4sad', '4on']));
     });
   });
 

@@ -1,7 +1,33 @@
 // @dart=2.9
 import 'package:lexpro/base/lexer.dart';
 
+import '../senior/MdStyleConfigElementParser.dart';
+import 'JamvAttrLib.dart';
+
 main() {
+  LexerMain lexer = LexerMain.load(libraries: [JamvAttrLib()])
+    ..rootState('include-jamv-attr')
+    ..config = {
+      'stateWillListTokens': [Attr, Token.Error],
+      'savingRuntimeContext': true,
+      'willAutoCompleteErrors': true
+    }
+    ..dependencyAnalyze();
+  // print(lexer.pretty(''' wid'''));
+  // lexer.configPrint();
+  // print(lexer.autoCompleting('wid', 'jamv-attr-back'));
+  print(lexer.pretty(''' width="10" minHeight'''));
+  lexer.configPrint();
+  print(lexer.autoCompleting('minHeight', 'jamv-attr-back'));
+  // print(lexer.pretty(''' width="10" minHeight_100 center text-right bottom'''));
+  // lexer.configPrint();
+  // print(lexer.pretty(''' width="10" minHeight_100 cnter text-right bottom'''));
+  // print(lexer.configPrint());
+  // print(lexer.pretty(''' dth="10" minHeight_ center build text-right '''));
+  // print(lexer.configPrint());
+}
+
+_test1() {
   var out = (LexerMain.load(libraries: [
     Lib1(), // rely on lib2
     Lib2(), // rely on lib3

@@ -16,6 +16,7 @@ var test1 = '''
 </headline>
 <p />
 ''';
+
 var test2 = '''
 <blockquote width_10 green bgcolor:grey paddingLeft_45 >
 	<p black87 text-right/>

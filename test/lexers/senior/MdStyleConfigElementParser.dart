@@ -115,10 +115,10 @@ class MdStyleConfigElementParser extends DTokenedRegexLexer {
           JParse.constingroups(r'(<\/)(..)([[\t\ ]*)(>)', [
             [BlockQuote]
           ], [
-            DynamicToken.fromEnum(['</'], enumName: endT.name),
+            DynamicToken.fromEnum(['</'], named: endT),
             TAG,
             BLANK,
-            DynamicToken.fromEnum(['>'], enumName: Tend.name)
+            DynamicToken.fromEnum(['>'], named: Tend)
           ], [
             POP
           ])
@@ -146,10 +146,10 @@ class MdStyleConfigElementParser extends DTokenedRegexLexer {
           JParse.constingroups(r'(<\/)(..)([[\t\ ]*)(>)', [
             [HeadLine]
           ], [
-            DynamicToken.fromEnum(['</'], enumName: endT.name),
+            DynamicToken.fromEnum(['</'], named: endT.name),
             TAG,
             BLANK,
-            DynamicToken.fromEnum(['>'], enumName: Tend.name)
+            DynamicToken.fromEnum(['>'], named: Tend.name)
           ], [
             POP
           ])
@@ -178,8 +178,6 @@ class MdStyleConfigElementParser extends DTokenedRegexLexer {
   Map<String, List<JParse>> commonparses(
           Map<String, List<JParse>> currentCommon) =>
       {
-        ...currentCommon,
-
         /// Common part for including lexers(JParse.lexer) and self usage.
         'attr_or_end': [
           JParse.include('include_attr'),
