@@ -105,7 +105,17 @@ enum Token {
   // added in lexpro
   IncludeOtherLexer,
   // for DynamicToken transfer
-  Dynamic
+  Dynamic,
+  // for event system
+  EventUnknown,
+  EventOnStateWillStart,
+  EventOnStateWillRestart,
+  EventOnStateWillEnd,
+  EventOnRuleWillStart,
+  EventOnRuleMissed,
+  EventOnRuleMatchedEnterLeave,
+  EventOnCondition,
+  EventOnConditionInclude
 }
 
 /// easy for users to define their own Tokens

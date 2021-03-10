@@ -42,10 +42,16 @@ class JamvAttrLib extends LibraryLexer {
           JParse.include('include-pure-jamv-attr'),
         ],
         'include-pure-jamv-attr': [
+          JParse.eventOnStateWillStart(),
+          JParse.eventOnStateWillRestart(),
           JParse.include('jamv-attr-align'),
           JParse.include('jamv-attr-text-align'),
+          JParse.eventOnRuleMissed('not align'),
           JParse.include('jamv-attr-pos'),
+          JParse.eventOnCondition(
+              'only accept one size', [MATCHED(LEAVE: 'pop'), POP]),
           JParse.include('jamv-attr-size'),
+          JParse.eventOnStateWillEnd()
         ],
         'jamv-attr-align': [
           JParse.constingroups(r'(' + AlignSV + r')(=")(..)(")', [

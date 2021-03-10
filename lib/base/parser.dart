@@ -10,7 +10,6 @@ import 'package:lexpro/utils/tools.dart';
 // Token Enum(DynamicToken dynamicToken){
 
 // }
-
 const POP = '#pop';
 const POP2 = '#pop:2';
 const PUSH = '#push';
@@ -76,6 +75,24 @@ class JParse extends Parse {
   List<List<String>> constants;
   bool get isConst => constants != null;
   Token get token => dtoken.token;
+  factory JParse.eventOnStateWillStart() =>
+      EventEmmitor(null, DynamicToken.from(Token.EventOnStateWillStart));
+  factory JParse.eventOnStateWillRestart() =>
+      EventEmmitor(null, DynamicToken.from(Token.EventOnStateWillRestart));
+  factory JParse.eventOnStateWillEnd() =>
+      EventEmmitor(null, DynamicToken.from(Token.EventOnStateWillEnd));
+  factory JParse.eventOnRuleWillStart(String ruleStartFlag) => EventEmmitor(
+      ruleStartFlag, DynamicToken.from(Token.EventOnRuleWillStart));
+  factory JParse.eventOnRuleMissed(String ruleMissedFlag) =>
+      EventEmmitor(ruleMissedFlag, DynamicToken.from(Token.EventOnRuleMissed));
+  factory JParse.eventOnCondition(
+          String conditionFlag, List<String> returnTrueCallBack) =>
+      EventEmmitor(conditionFlag, DynamicToken.from(Token.EventOnCondition),
+          returnTrueCallBack);
+  factory JParse.eventOnConditionInclude(
+          String conditionFlag, Iterable<JParse> skippingRules) =>
+      JParsePackage(conditionFlag,
+          DynamicToken.from(Token.EventOnConditionInclude), skippingRules);
 
   factory JParse.include(String s) =>
       JParse(s, DynamicToken.from(Token.IncludeOtherParse));
@@ -139,4 +156,17 @@ class LexerJParse extends JParse {
     this.lexer, [
     List<String> newStates = null,
   ]) : super(null, DynamicToken.from(Token.IncludeOtherLexer), newStates);
+}
+
+class EventEmmitor extends JParse {
+  EventEmmitor(String eventFlag, DynamicToken eventToken,
+      [List<String> newStates = null])
+      : super(eventFlag, eventToken ?? DynamicToken.from(Token.EventUnknown),
+            newStates);
+}
+
+class JParsePackage extends EventEmmitor {
+  List<JParse> package;
+  JParsePackage(String eventFlag, DynamicToken eventToken, this.package)
+      : super(eventFlag, eventToken);
 }

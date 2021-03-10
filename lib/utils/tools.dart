@@ -175,6 +175,36 @@ List<RegExpMatch> enumAllMatches(
   return res;
 }
 
+String constantEscape(String constant) {
+  List<String> constants = [constant];
+  if (constant.contains(r'\')) {
+    constants = constant.split(r'\');
+  }
+  return constants.map<String>((cstnt) {
+    return [
+      cstnt,
+      '.',
+      '+',
+      '?',
+      '*',
+      '(',
+      ')',
+      '^',
+      '|',
+      '[',
+      ']',
+      '{',
+      '}',
+      r'$'
+    ].reduce((value, element) {
+      if (value.contains(element)) {
+        return value.replaceAll(element, r'\' + element);
+      }
+      return value;
+    });
+  }).join(r'\\');
+}
+
 List<String> enumAllConstants(List<List<String>> constantRules) {
   var res = constantRules.reduce((value, element) {
     if (value.isEmpty)
@@ -194,9 +224,12 @@ String const2Pattern(List<List<String>> constantRules) {
   return constantRules.whereType<List<String>>().map((element) {
     List<String> orparts = <String>[]..addAll(element);
     bool blankAllowed = false;
-    orparts.removeWhere((element) {
-      return element.isEmpty && (blankAllowed = true);
-    });
+    orparts = (orparts
+          ..removeWhere((element) {
+            return element.isEmpty && (blankAllowed = true);
+          }))
+        .map((cstnt) => constantEscape(cstnt))
+        .toList();
     if (orparts.isNotEmpty) {
       return '(' + orparts.join('|') + ')' + (blankAllowed ? '?' : '');
     } else

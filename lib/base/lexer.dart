@@ -1,6 +1,7 @@
 // @dart=2.9
 import 'dart:developer';
 
+import 'package:lexpro/base/event.dart';
 import 'package:lexpro/base/parser.dart';
 import 'package:lexpro/base/types.dart';
 import 'package:lexpro/base/unprocessed_token.dart';
@@ -126,7 +127,10 @@ class Position {
 }
 
 typedef RegExpMatch RexMatch(String text, int pos);
-
+const CONFIG_EVENT_DISPATCHER = 'eventDispatcher';
+const CONFIG_USECACHE = 'useCache';
+const CONFIG_SAVING_RUNTIME_CONTEXT = 'savingRuntimeContext';
+const CONFIG_STATE_WILL_LIST_TOKENS = 'stateWillListTokens';
 // http://pygments.org/docs/lexerdevelopment
 //
 // The lexer base class used by almost all of Pygments’ lexers is the
@@ -188,14 +192,18 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
   /// the context stays inside of this parser and this will not cause conflict.
   /// different parser has its own cacheContext, they should not be merged anytime for the risk of naming conflict.
   Map<String, List<T>> _cacheContext = {};
-  bool get useCache => config?.containsKey('useCache') ?? false
-      ? (config['useCache'] as bool)
+  bool get supportEventDispatching =>
+      config?.containsKey(CONFIG_EVENT_DISPATCHER) ?? false;
+  RawEventDispatcher get configEventDispatcher =>
+      supportEventDispatching ? config[CONFIG_EVENT_DISPATCHER] : null;
+  bool get useCache => config?.containsKey(CONFIG_USECACHE) ?? false
+      ? (config[CONFIG_USECACHE] as bool)
       : true;
   bool get configSaveRuntimeContext =>
-      config?.containsKey('savingRuntimeContext') ?? false;
+      config?.containsKey(CONFIG_SAVING_RUNTIME_CONTEXT) ?? false;
   List<Object> get configListTokenStateNames =>
-      config?.containsKey('stateWillListTokens') ?? false
-          ? config['stateWillListTokens'] as List
+      config?.containsKey(CONFIG_STATE_WILL_LIST_TOKENS) ?? false
+          ? config[CONFIG_STATE_WILL_LIST_TOKENS] as List
           : null;
 
   /// You don't have to merge like this
@@ -253,10 +261,13 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
         }
         return 1;
       });
-    return matches.map((m) => m.input).toList();
+
+    /// step3: 用 Set 去重
+    return (Set()..addAll(matches.map((m) => m.input))).toList();
   }
 
-  List<String> correcting({String tText, String stateName}) {
+  // Deprecated.
+  List<String> __correcting({String tText, String stateName}) {
     List<String> recommands = [];
     _addFromParses(parses) {
       parses[stateName]?.whereType<JParse>()?.forEach((element) {
@@ -304,10 +315,18 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
   }
 
   void configPrint() {
+    print('''Settings:
++============================
+|  $CONFIG_EVENT_DISPATCHER : ${configEventDispatcher}
+|  $CONFIG_SAVING_RUNTIME_CONTEXT : ${configSaveRuntimeContext}
+|  $CONFIG_STATE_WILL_LIST_TOKENS : ${configListTokenStateNames}
+|  $CONFIG_USECACHE : ${useCache}
++============================
+''');
     if (configListTokenStateNames == null || _tokensUnprocessed == null) return;
     print('''
 
-States:
+Tokens by state:
 =============================
 ''');
     int total = 0;
@@ -365,6 +384,7 @@ $totalPadding
   List<UnprocessedToken> _tokensUnprocessed;
   Iterable<UnprocessedToken> getTokensUnprocessed(String text,
       [List<String> stack, Position pos, Map<String, List<T>> commondefs]) {
+    // init 变量
     var ret = <UnprocessedToken>[];
     pos = pos ?? Position(0);
 
@@ -377,13 +397,109 @@ $totalPadding
     _runtimeContext = configSaveRuntimeContext ? parsedefs : null;
     final List<String> statestack = stack ?? List.from([root]);
     List<T> statetokens = parsedefs[statestack.last];
+
+    bool stateStartTrigger = false;
+    bool stateRestartTrigger = false;
+    bool stateEndTrigger = false;
+    String _willRestartFlag;
+    // init 函数
+    _markStateAboutEventEmmitor(_) {
+      stateStartTrigger = false;
+      stateRestartTrigger = false;
+      stateEndTrigger = false;
+      _.forEach((T item) {
+        if (item is EventEmmitor) {
+          if (item.dtoken == Token.EventOnStateWillStart)
+            stateStartTrigger = true;
+          else if (item.dtoken == Token.EventOnStateWillRestart)
+            stateRestartTrigger = true;
+          else if (item.dtoken == Token.EventOnStateWillEnd)
+            stateEndTrigger = true;
+        }
+      });
+    }
+
+    String currentStateName() {
+      return statestack.isEmpty ? root : statestack.last;
+    }
+
+    int _tempL = ret.length;
+    Context _buildContext() {
+      int lastL = _tempL;
+      _tempL = ret.length;
+      return TokenContext(parsedefs, ret, lastL);
+    }
+
+    bool _finishJumpState(newStates) {
+      for (final state in newStates) {
+        if (_doStackActionsNeedBreak(statestack, state,
+                context: _buildContext()) ==
+            true) {
+          return true;
+        }
+      }
+      statetokens = parsedefs[currentStateName()];
+      // statestack.isEmpty ? parsedefs[root] : parsedefs[statestack.last];
+      // _markStateAboutEventEmmitor(statetokens);
+      // if (statetokens == null) debugger();
+      return false;
+    }
+
     while (true && pos.from < text.length) {
       bool matched = false;
-      for (final parse in statetokens) {
+      String solidEventStateName = currentStateName();
+      _markStateAboutEventEmmitor(statetokens);
+      if (supportEventDispatching) {
+        if (stateRestartTrigger && _willRestartFlag == currentStateName()) {
+          configEventDispatcher.dispatchEvent(
+              Token.EventOnStateWillRestart,
+              Token.EventOnStateWillRestart.toString().substring(6),
+              solidEventStateName,
+              _buildContext());
+        } else if (stateStartTrigger) {
+          configEventDispatcher.dispatchEvent(
+              Token.EventOnStateWillStart,
+              Token.EventOnStateWillStart.toString().substring(6),
+              solidEventStateName,
+              _buildContext());
+          _willRestartFlag = currentStateName();
+        }
+      }
+      var _growableIterating = []..addAll(statetokens);
+      while (_growableIterating.isNotEmpty) {
+        final parse = _growableIterating.removeAt(0);
+        // }
+        // for (final parse in statetokens) {
         final pattern = parse.pattern;
         final token = parse is JParse ? parse.dtoken : parse.token;
         final newStates = parse.newStates;
-        if (token == Token.IncludeOtherLexer) {
+        Token _temp;
+        if (token == (_temp = Token.EventOnCondition) ||
+            token == (_temp = Token.EventOnConditionInclude) ||
+            token == (_temp = Token.EventOnRuleMissed) ||
+            token == (_temp = Token.EventOnRuleWillStart)) {
+          if (supportEventDispatching) {
+            // Token.EventOnCondition 具有跳转的功能
+            if (configEventDispatcher.dispatchEvent(
+                    _temp, pattern, solidEventStateName, _buildContext()) ==
+                true) {
+              if (_temp == Token.EventOnCondition) {
+                if (newStates != null && _finishJumpState(newStates)) {
+                  return ret;
+                }
+              } else if (_temp == Token.EventOnConditionInclude) {
+                _growableIterating.insertAll(
+                    0,
+                    expandList(
+                        (parse as JParsePackage).package.cast<T>(), parsedefs));
+              }
+            }
+          }
+        } else if (token == Token.EventOnStateWillEnd ||
+            token == Token.EventOnStateWillRestart ||
+            token == Token.EventOnStateWillStart) {
+          continue;
+        } else if (token == Token.IncludeOtherLexer) {
           RegexLexer lexer =
               parse is LexerJParse ? parse.lexer : (parse as LexerParse).lexer;
           lexer.config = config;
@@ -417,29 +533,27 @@ $totalPadding
               ret.addAll(this._bygroup(
                   m,
                   parse.groupTokens ?? (parse as GroupJParse).groupDTokens,
-                  statestack.isEmpty ? root : statestack.last));
+                  currentStateName()));
             } else {
-              ret.add(UnprocessedToken(pos.from, token, m.group(0),
-                  statestack.isEmpty ? root : statestack.last, debuggable));
+              ret.add(UnprocessedToken(
+                  pos.from, token, m.group(0), currentStateName(), debuggable));
             }
           }
           pos.from = m.end;
-          if (newStates != null) {
-            for (final state in newStates) {
-              if (_doStackActionsNeedBreak(statestack, state) == true) {
-                return ret;
-              }
-            }
-            statetokens = statestack.isEmpty
-                ? parsedefs[root]
-                : parsedefs[statestack.last];
-            // if (statetokens == null) debugger();
+          if (newStates != null && _finishJumpState(newStates)) {
+            return ret;
           }
           matched = true;
           break;
         }
       }
-
+      if (supportEventDispatching && stateEndTrigger) {
+        configEventDispatcher.dispatchEvent(
+            Token.EventOnStateWillEnd,
+            Token.EventOnStateWillEnd.toString().substring(6),
+            solidEventStateName,
+            _buildContext());
+      }
       if (!matched) {
         // We are here only if all state tokens have been considered
         // and there was not a match on any of them.
@@ -455,7 +569,7 @@ $totalPadding
           // print(
           //     'Error starts from "${text.substring(pos.from)}" in statestack: $statestack \n');
           ret.add(UnprocessedToken(pos.from, Token.Error, text[pos.from],
-              statestack.isEmpty ? root : statestack.last, debuggable));
+              currentStateName(), debuggable));
           pos.from++;
         } on Exception catch (err) {
           print(err);
@@ -560,7 +674,8 @@ $totalPadding
     }
   }
 
-  bool _doStackActionsNeedBreak(List<String> statestack, String stateOrAction) {
+  bool _doStackActionsNeedBreak(List<String> statestack, String stateOrAction,
+      {Context context}) {
     if (stateOrAction == CLEAR)
       statestack.clear();
     else if (stateOrAction == BREAK) {
@@ -574,6 +689,12 @@ $totalPadding
       this._popTo(statestack, root);
     else if (stateOrAction == PUSH)
       statestack.add(statestack.last);
+    else if (stateOrAction.startsWith("#event-match")) {
+      if (supportEventDispatching) {
+        configEventDispatcher.dispatchEvent(Token.EventOnRuleMatchedEnterLeave,
+            stateOrAction, statestack.last, context);
+      }
+    }
 
     /// add more dynamic way to control state stack.
     else if (stateOrAction.startsWith("#pop:")) {
@@ -695,29 +816,30 @@ $totalPadding
     return merged;
   }
 
-  Map<String, List<T>> _expand(Map<String, List<T>> parsesMap) {
-    final expanded = Map<String, List<T>>();
-    Iterable<T> expandList(List<T> parses) sync* {
-      for (final p in parses) {
-        if (p.token == Token.IncludeOtherParse) {
-          yield* expandList(parsesMap[p.pattern]);
-        } else {
-          yield p;
-        }
+  Iterable<T> expandList(List<T> parses, Map<String, List<T>> parsesMap) sync* {
+    if (parses == null) debugger();
+    for (final p in parses) {
+      if (p.token == Token.IncludeOtherParse) {
+        yield* expandList(parsesMap[p.pattern], parsesMap);
+      } else {
+        yield p;
       }
     }
+  }
 
+  Map<String, List<T>> _expand(Map<String, List<T>> parsesMap) {
+    final expanded = Map<String, List<T>>();
     for (final entry in parsesMap.entries) {
       if (useCache) {
         _cacheContext ??= {};
         if (_cacheContext.containsKey(entry.key)) {
           expanded[entry.key] = _cacheContext[entry.key];
         } else {
-          expanded[entry.key] = expandList(entry.value).toList();
+          expanded[entry.key] = expandList(entry.value, parsesMap).toList();
           _cacheContext[entry.key] = expanded[entry.key];
         }
       } else
-        expanded[entry.key] = expandList(entry.value).toList();
+        expanded[entry.key] = expandList(entry.value, parsesMap).toList();
     }
     return expanded;
   }
@@ -812,7 +934,15 @@ class LexerMain extends RegexLexer<JParse> {
         undefined[_oSymbol(element)] = [];
         var it = element.commonparses(null);
         it.values.forEach((e) {
-          e.forEach((parser) {
+          List<JParse> _growableEValues = []..addAll(e);
+          while (_growableEValues.isNotEmpty) {
+            var parser = _growableEValues.removeAt(0);
+            // }
+            // e.forEach((parser) {
+            // 解包压平
+            if (parser is JParsePackage) {
+              _growableEValues..insertAll(0, parser.package);
+            } else
             // 检查包含关系
             if (parser.token == Token.IncludeOtherParse) {
               // 包含未定义
@@ -828,7 +958,8 @@ class LexerMain extends RegexLexer<JParse> {
             } else if (parser.newStates?.isNotEmpty ?? false) {
               parser.newStates.forEach((jump) {
                 // 排除跳转动作
-                if (RegExp(r'#(on|pop|push|clear|break)').matchAsPrefix(jump) !=
+                if (RegExp(r'#(on|pop|push|clear|break|event)')
+                        .matchAsPrefix(jump) !=
                     null) return;
                 // 跳转未定义
                 if (defined[jump] == null) {
@@ -841,7 +972,8 @@ class LexerMain extends RegexLexer<JParse> {
                 }
               });
             }
-          });
+          }
+          // );
         });
       });
       String out = "";

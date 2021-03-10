@@ -13,6 +13,16 @@ String POPTO(stateNameOrNum) {
   return '#pop:$stateNameOrNum';
 }
 
+String MATCHED({String LEAVE, String ENTER}) {
+  return '#event-matched#leave:{$LEAVE}#enter:{$ENTER}';
+}
+
+Map<String, String> decryptEvent(String event) {
+  RegExpMatch m = RegExp(r'#event-matched#leave:{([^\}]*)}#enter:{([^\}]*)}')
+      .matchAsPrefix(event);
+  return {'leave': m?.group(1), 'enter': m?.group(2)};
+}
+
 /// Recursive self invoke is dangerous!!!(NOT TESTED YET)
 String ON(String stateName, {String POP, String DO, String ELSE}) {
   var ret = '#on:$stateName';

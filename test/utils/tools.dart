@@ -111,6 +111,9 @@ void main() {
     ['red', 'green', 'blue', 'yellow']
   ];
   group('Utils.enumAllConstants', () {
+    test('0', () {
+      expect(constantEscape('(a+b)?.c+d'), equals(r'\(a\+b\)\?\.c\+d'));
+    });
     test('1', () {
       expect(
           enumAllConstants(constants),
@@ -180,6 +183,12 @@ void main() {
     test('1', () {
       expect(const2Pattern(constants),
           equals('(bgcolor|color|strokecolor)(="|_)?(red|green|blue|yellow)'));
+      expect(
+          const2Pattern([
+            ['(name+bad)', ''],
+            ['?', r'3\4']
+          ]),
+          equals(r'(\(name\+bad\))?(\?|3\\4)'));
     });
   });
 }
