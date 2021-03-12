@@ -1,7 +1,7 @@
 name: lexpro
 description: Dart lexer for various programming languages base on lex v0.0.1 originally published by thlorenz10@gmail.com edit by jackyanjiaqi@gmail.com
 version: 2.0.0
-homepage: https://www.zhihu.com/people/digitalspritejack
+homepage: https://github.com/zhuofaner/lexpro-dart
 
 environment:
   sdk: ">=2.12.0 <3.0.0"

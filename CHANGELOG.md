@@ -1,3 +1,25 @@
+## 2.0.0
+* support **Event System** to build your AST or directly do your stuff.
+    
+    * support self defined `LIFE_CYCLE`s and `onCondition`s Events
+
+    * in `onRuleMatched` function will return a `Context` including newly added Tokens.
+
+* support build Parsers from known **Constants**
+
+* support DynamicToken create from **Enums** or **asEnum** to collect from parsed known message.
+
+* support create pure **Library Lexer** only loaded in root Lexer's common part.
+
+* support parse from a configgable **LexerMain** with a **Library Chain**
+
+    * support static `dependencyAnalyze` with no parsers running.
+
+* support **Auto Completing** from **Constants and Enums** reuse a cached runtime context.
+(*not tested launched from other than **Lexer Main**)*
+
+* use **Sound Nullable Version**
+
 ## 1.1.0+1
 * bugs hotfix
 ## 1.1.0

@@ -23,6 +23,9 @@ const BREAK = '#break';
 /// clear the statestack to empty
 const CLEAR = '#clear';
 
+/// for system use, user don't use
+const INSIDE_MARK_ADDED = '#inside-mark-added';
+
 class Parse {
   const Parse(
     this.pattern,
@@ -101,9 +104,15 @@ class JParse extends Parse {
       JParse(pattern, dtoken, newStates ?? this.newStates);
 
   /// replaceAllNewStates: 批量替换所有newStates 包括 Include
-  factory JParse.include(String s, {List<String> replaceAllNewStates}) =>
+  factory JParse.include(String s,
+          {List<String> replaceAllNewStates, List<String> addedNewStates}) =>
       JParse(
-          s, DynamicToken.from(Token.IncludeOtherParse), replaceAllNewStates);
+          s,
+          DynamicToken.from(Token.IncludeOtherParse),
+          replaceAllNewStates ??
+              (addedNewStates != null
+                  ? [INSIDE_MARK_ADDED, ...addedNewStates]
+                  : null));
 
   factory JParse.constants(
     List<List<String>> constants,

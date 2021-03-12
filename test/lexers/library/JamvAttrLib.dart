@@ -41,6 +41,8 @@ class JamvAttrLib extends LibraryLexer {
         'jamv-attr-back': [
           JParse.include('include-pure-jamv-attr'),
         ],
+
+        ///Event-Examples
         'include-pure-jamv-attr': [
           JParse.eventOnStateWillStart(),
           JParse.eventOnStateWillRestart(),
@@ -48,8 +50,8 @@ class JamvAttrLib extends LibraryLexer {
           JParse.include('jamv-attr-text-align'),
           JParse.eventOnRuleMissed('not align'),
           JParse.include('jamv-attr-pos'),
-          JParse.eventOnCondition(
-              'only accept one size', [MATCHED(LEAVE: 'pop'), POP]),
+          JParse.eventOnCondition('condition true to jump new states',
+              [MATCHED(LEAVE: 'pop'), POP]),
           JParse.include('jamv-attr-size',
               replaceAllNewStates: [MATCHED(), POP]),
           JParse.eventOnStateWillEnd()

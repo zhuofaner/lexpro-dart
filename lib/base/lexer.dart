@@ -132,6 +132,7 @@ const CONFIG_USECACHE = 'useCache';
 const CONFIG_SAVING_RUNTIME_CONTEXT = 'savingRuntimeContext';
 const CONFIG_STATE_WILL_LIST_TOKENS = 'stateWillListTokens';
 const CONFIG_DEBUGGABLE = 'debuggable';
+const CONFIG_ENUMSTRICT = 'enumStrict';
 // http://pygments.org/docs/lexerdevelopment
 //
 // The lexer base class used by almost all of Pygments’ lexers is the
@@ -209,6 +210,9 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
   bool get configDebuggable => config?.containsKey(CONFIG_DEBUGGABLE) ?? false
       ? config[CONFIG_DEBUGGABLE]
       : debuggable;
+  bool get configEnumStrict => config?.containsKey(CONFIG_ENUMSTRICT) ?? false
+      ? config[CONFIG_ENUMSTRICT]
+      : false;
 
   /// You don't have to merge like this
   /// return { ...currentCommon, [your Def]: bla bla bla}
@@ -218,17 +222,48 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
   Map<String, List<T>> commonparses(Map<String, List<T>> currentCommon);
 
   List<String> _enumAllGiven(DynamicToken enumToken, String stateName) {
-    assert(enumToken.isEnum == true);
-    if (enumToken.enums.isNotEmpty)
-      return enumToken.enums;
-    else {
+    // assert(enumToken.isEnum == true);
+    if (enumToken.isEnum) {
+      if (enumToken.enums.isNotEmpty)
+        return enumToken.enums;
+      else {
+        var exist = <String>[];
+        _tokensUnprocessed.forEach((element) {
+          if (
+              //去重
+              !exist.contains(element.match) &&
+                  enumToken.enumsEqual(element.token) &&
+                  element.stateName == stateName) {
+            exist.add(element.match);
+          }
+        });
+        return exist;
+      }
+    } else {
+      var exist = <String>[];
       return _tokensUnprocessed
-          .where((element) =>
-              enumToken.enumsEqual(element.token) &&
-              element.stateName == stateName)
-          .map<String>((e) => e.match)
+          .where((element) {
+            var mark = element.stateName + element.match;
+            if (
+                //去重
+                !exist.contains(mark) &&
+                    //相等
+                    enumToken == element.token &&
+                    //严格模式比对所在 state 名称
+                    (configEnumStrict
+                        ? element.stateName == stateName
+                        : true)) {
+              return true;
+            }
+            return false;
+          })
+          .map((item) => item.match)
           .toList();
     }
+
+    // if(configEnumStrict == false){
+    //   return _tokensUnprocessed.where((element) => enumToken == element.token)
+    // }else return [];
   }
 
   List<String> autoCompleting(String errorText, String stateName) {
@@ -323,6 +358,7 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
 |  $CONFIG_SAVING_RUNTIME_CONTEXT : ${configSaveRuntimeContext}
 |  $CONFIG_STATE_WILL_LIST_TOKENS : ${configListTokenStateNames}
 |  $CONFIG_USECACHE : ${useCache}
+|  $CONFIG_ENUMSTRICT : ${configEnumStrict}
 +============================
 ''');
     if (configListTokenStateNames == null || _tokensUnprocessed == null) return;
@@ -712,6 +748,7 @@ $totalPadding
             statestack.isNotEmpty ? statestack.last : root,
             context);
       }
+    } else if (stateOrAction.startsWith(r'#inside-')) {
     }
 
     /// add more dynamic way to control state stack.
@@ -784,6 +821,10 @@ $totalPadding
     int groupIdx = 1;
     int pos = m.start;
     for (final token in tokens) {
+      if (token == null) {
+        groupIdx++;
+        continue;
+      }
       final s = m.group(groupIdx);
       if (token == Token.RecurseSameLexer) {
         yield* this.getTokensUnprocessed(s);
@@ -837,15 +878,36 @@ $totalPadding
     return merged;
   }
 
+  List<String> _replaceOrAddNewStates(
+      List<String> replaced, List<String> origin) {
+    if (replaced != null && origin != null) {
+      if (replaced.contains(INSIDE_MARK_ADDED)) {
+        // 内层可加，可以递归累加
+        if (origin.contains(INSIDE_MARK_ADDED)) {
+          return [...replaced, ...origin];
+          // 内层替换，只加到本层
+        } else {
+          return [...replaced, ...origin]
+            ..removeWhere((element) => element == INSIDE_MARK_ADDED);
+        }
+      } else {
+        return replaced;
+      }
+    } else
+      return replaced ?? origin;
+  }
+
   Iterable<T> expandList(List<T> parses, Map<String, List<T>> parsesMap,
       {List<String> replaceNewState}) sync* {
     for (final p in parses) {
       if (p.token == Token.IncludeOtherParse) {
         yield* expandList(parsesMap[p.pattern], parsesMap,
-            replaceNewState: replaceNewState ?? p.newStates);
+            replaceNewState:
+                _replaceOrAddNewStates(replaceNewState, p.newStates));
       } else if (replaceNewState != null) {
         /// Parse.include 批量替换 newState 避免污染原 Parse
-        yield p.copy(newStates: replaceNewState);
+        yield p.copy(
+            newStates: _replaceOrAddNewStates(replaceNewState, p.newStates));
       } else
         yield p;
     }
@@ -876,7 +938,7 @@ class LexerMain extends RegexLexer<JParse> {
   LexerMain._() : super(debuggable: true);
   List<LibraryLexer> _libraries;
   String _rootState;
-  RegexLexer _root;
+  RegexLexer _rootLexer;
 
   static LexerMain load({List<LibraryLexer> libraries, RegexLexer root}) {
     return _instance
@@ -889,10 +951,10 @@ class LexerMain extends RegexLexer<JParse> {
   }
 
   rootLexer(RegexLexer root) {
-    _root = root ?? _root;
+    _rootLexer = root ?? _rootLexer;
   }
 
-  rootState(String rstate) {
+  libraryRootState(String rstate) {
     _rootState = rstate ?? _rootState;
   }
 
@@ -902,14 +964,14 @@ class LexerMain extends RegexLexer<JParse> {
       currentCommon;
 
   @override
-  RegExpFlags get flags => _root?.flags;
+  RegExpFlags get flags => _rootLexer?.flags;
 
   @override
   Map<String, List<JParse>> get parses {
-    assert(_root != null || _rootState != null);
+    assert(_rootLexer != null || _rootState != null);
     if (_libraries?.isNotEmpty ?? false) {
       _libraries[0]
-        ..loadNext(_root)
+        ..loadNext(_rootLexer)
         ..loadRoot(_rootState);
       LibraryLexer main =
           _libraries.reduce((value, element) => element..loadNext(value));
@@ -918,10 +980,10 @@ class LexerMain extends RegexLexer<JParse> {
           JParse.lexer(main, doActionsWithoutState: [CLEAR])
         ]
       };
-    } else if (_root != null) {
+    } else if (_rootLexer != null) {
       return {
         'main': [
-          JParse.lexer(_root, doActionsWithoutState: [CLEAR])
+          JParse.lexer(_rootLexer, doActionsWithoutState: [CLEAR])
         ]
       };
     } else
@@ -940,11 +1002,16 @@ class LexerMain extends RegexLexer<JParse> {
     Map<String, Object> defined = {};
     Map<String, List> undefined = {};
     _oSymbol(Object o) => '${o.runtimeType}(${o.hashCode})';
-    if (_libraries != null && _libraries.isNotEmpty) {
-      _libraries.reversed.forEach((element) {
+    var lib =
+        _libraries?.reversed.cast<RegexLexer>().toList() ?? <RegexLexer>[];
+    if (_rootLexer != null) lib.add(_rootLexer);
+    if (lib.isNotEmpty) {
+      lib.forEach((element) {
         Map<String, List> d =
             defined[_oSymbol(element)] = {'override': [], 'unused': []};
-        var it = element.commonparses(null);
+        var it = element == _rootLexer
+            ? {...element.parses, ...element.commonparses(null)}
+            : element.commonparses(null);
         it.keys.forEach((state) {
           if (defined.keys.contains(state)) {
             var oldElement = defined[state];
@@ -962,11 +1029,13 @@ class LexerMain extends RegexLexer<JParse> {
           }
         });
       });
-      _libraries.reversed.forEach((element) {
+      lib.forEach((element) {
         undefined[_oSymbol(element)] = [];
-        var it = element.commonparses(null);
+        var it = element == _rootLexer
+            ? {...element.parses, ...element.commonparses(null)}
+            : element.commonparses(null);
         it.values.forEach((e) {
-          List<JParse> _growableEValues = []..addAll(e);
+          List<Parse> _growableEValues = []..addAll(e);
           while (_growableEValues.isNotEmpty) {
             var parser = _growableEValues.removeAt(0);
             // }
@@ -992,7 +1061,7 @@ class LexerMain extends RegexLexer<JParse> {
             if (parser.newStates?.isNotEmpty ?? false) {
               parser.newStates.forEach((jump) {
                 // 排除跳转动作
-                if (RegExp(r'#(on|pop|push|clear|break|event)')
+                if (RegExp(r'#(on|pop|push|clear|break|event|inside)')
                         .matchAsPrefix(jump) !=
                     null) return;
                 // 跳转未定义

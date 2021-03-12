@@ -11,7 +11,7 @@ main() {
     // JamvAttrOnceLib(),
     JamvAttrLib(),
   ])
-    ..rootState('include-jamv-attr')
+    ..libraryRootState('include-jamv-attr')
     // ..rootState('include-jamv-attr-once')
     ..config = {
       'stateWillListTokens': [Attr, Token.Error],
@@ -57,7 +57,7 @@ _test1() {
       ]
     })
   ])
-        ..rootState('lib1')
+        ..libraryRootState('lib1')
         ..dependencyAnalyze())
       .pretty('''this is not awsome!
   ''');
