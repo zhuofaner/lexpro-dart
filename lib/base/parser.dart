@@ -56,6 +56,9 @@ class Parse {
     }''';
   }
 
+  copy({List<String> newStates}) =>
+      Parse(pattern, token, newStates ?? this.newStates);
+
   List<String> split() {
     List<String> buf = [];
     Parse node = this;
@@ -93,9 +96,14 @@ class JParse extends Parse {
           String conditionFlag, Iterable<JParse> skippingRules) =>
       JParsePackage(conditionFlag,
           DynamicToken.from(Token.EventOnConditionInclude), skippingRules);
+  @override
+  copy({List<String> newStates}) =>
+      JParse(pattern, dtoken, newStates ?? this.newStates);
 
-  factory JParse.include(String s) =>
-      JParse(s, DynamicToken.from(Token.IncludeOtherParse));
+  /// replaceAllNewStates: 批量替换所有newStates 包括 Include
+  factory JParse.include(String s, {List<String> replaceAllNewStates}) =>
+      JParse(
+          s, DynamicToken.from(Token.IncludeOtherParse), replaceAllNewStates);
 
   factory JParse.constants(
     List<List<String>> constants,
@@ -118,8 +126,8 @@ class JParse extends Parse {
 
   factory JParse.empty(List<String> nextState) =>
       JParse('', DynamicToken.from(Token.Text), nextState);
-  factory JParse.lexer(Lexer lexer, [List<String> nextState]) =>
-      LexerJParse(lexer, nextState);
+  factory JParse.lexer(Lexer lexer, {List<String> doActionsWithoutState}) =>
+      LexerJParse(lexer, doActionsWithoutState);
 }
 
 // Yields multiple actions for each group in the match.
@@ -131,6 +139,9 @@ class GroupParse extends Parse {
   ]) : super(pattern, Token.ParseByGroups, newStates);
 
   final List<Token> groupTokens;
+  @override
+  copy({List<String> newStates}) =>
+      GroupParse(pattern, groupTokens, newStates ?? this.newStates);
 }
 
 class GroupJParse extends JParse {
@@ -140,6 +151,9 @@ class GroupJParse extends JParse {
             constants);
 
   final List<DynamicToken> groupDTokens;
+  @override
+  copy({List<String> newStates}) =>
+      GroupJParse(pattern, groupDTokens, newStates ?? this.newStates);
 }
 
 class LexerParse extends Parse {
@@ -148,6 +162,9 @@ class LexerParse extends Parse {
     this.lexer, [
     List<String> newStates = null,
   ]) : super(null, Token.IncludeOtherLexer, newStates);
+  @override
+  copy({List<String> newStates}) =>
+      LexerParse(lexer, newStates ?? this.newStates);
 }
 
 class LexerJParse extends JParse {
@@ -156,6 +173,9 @@ class LexerJParse extends JParse {
     this.lexer, [
     List<String> newStates = null,
   ]) : super(null, DynamicToken.from(Token.IncludeOtherLexer), newStates);
+  @override
+  copy({List<String> newStates}) =>
+      LexerJParse(lexer, newStates ?? this.newStates);
 }
 
 class EventEmmitor extends JParse {
@@ -163,10 +183,15 @@ class EventEmmitor extends JParse {
       [List<String> newStates = null])
       : super(eventFlag, eventToken ?? DynamicToken.from(Token.EventUnknown),
             newStates);
+  @override
+  copy({List<String> newStates}) =>
+      EventEmmitor(pattern, dtoken, newStates ?? this.newStates);
 }
 
 class JParsePackage extends EventEmmitor {
   List<JParse> package;
   JParsePackage(String eventFlag, DynamicToken eventToken, this.package)
       : super(eventFlag, eventToken);
+  @override
+  copy({List<String> newStates}) => JParsePackage(pattern, dtoken, package);
 }

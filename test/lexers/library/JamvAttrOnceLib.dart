@@ -7,7 +7,7 @@ class JamvAttrOnceLib extends LibraryLexer {
   Map<String, List<JParse>> commonparses(
           Map<String, List<JParse>> currentCommon) =>
       {
-        'include-jamv-attr-once': [
+        'include-jamv-attr': [
           JParse(r'[\t\ ]+', BLANK, ['jamv-attr-back-once'])
         ],
         'jamv-attr-back-once': [

@@ -7,27 +7,31 @@ import 'JamvAttrLib.dart';
 import 'JamvAttrOnceLib.dart';
 
 main() {
-  LexerMain lexer =
-      LexerMain.load(libraries: [JamvAttrOnceLib(), JamvAttrLib()])
-        // ..rootState('include-jamv-attr')
-        ..rootState('include-jamv-attr-once')
-        ..config = {
-          'stateWillListTokens': [Attr, Token.Error],
-          'savingRuntimeContext': true,
-          'willAutoCompleteErrors': true,
-          CONFIG_EVENT_DISPATCHER: MyEventListener()
-        }
-        ..dependencyAnalyze();
-  // print(lexer.pretty(''' wid'''));
-  // lexer.configPrint();
-  // print(lexer.autoCompleting('wid', 'jamv-attr-back'));
+  LexerMain lexer = LexerMain.load(libraries: [
+    // JamvAttrOnceLib(),
+    JamvAttrLib(),
+  ])
+    ..rootState('include-jamv-attr')
+    // ..rootState('include-jamv-attr-once')
+    ..config = {
+      'stateWillListTokens': [Attr, Token.Error],
+      'savingRuntimeContext': true,
+      'willAutoCompleteErrors': true,
+      // 'eventDispatcher': MyEventListener(),
+      'debuggable': false,
+    }
+    ..dependencyAnalyze();
+  print('1st:' + lexer.pretty(''' wid'''));
+  lexer.configPrint();
+  print('1st autocomplete:' +
+      lexer.autoCompleting('wid', 'jamv-attr-back').toString());
 
   // print(lexer.pretty(''' width="10" minHeight'''));
   // lexer.configPrint();
   // print(lexer.autoCompleting('minHeight', 'jamv-attr-back'));
 
-  print(lexer.pretty(''' width="10" width="100"'''));
-  lexer.configPrint();
+  print('2st' + lexer.pretty(''' width="10" width="100"'''));
+  // lexer.configPrint();
 
   // print(lexer.pretty(''' width="10" minHeight_100 center text-right bottom'''));
   // lexer.configPrint();
@@ -82,8 +86,10 @@ class MyEventListener extends FullEventListener {
   }
 
   @override
-  onRuleMatched(String stateName, {String enter, String leave}) {
+  onRuleMatched(String stateName, Context context,
+      {String enter, String leave}) {
     print('\nonRuleMatched');
+    print('\n\t\tcontex:$context');
     print('\n\t\tstateName:$stateName enter:$enter leave:$leave');
   }
 

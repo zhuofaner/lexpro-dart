@@ -36,7 +36,7 @@ class JamvAttrLib extends LibraryLexer {
           Map<String, List<JParse>> currentCommon) =>
       {
         'include-jamv-attr': [
-          JParse(r'[\t\ ]+', BLANK, ['jamv-attr-back'])
+          JParse(r'[\t\ ]+', BLANK, [MATCHED(), 'jamv-attr-back'])
         ],
         'jamv-attr-back': [
           JParse.include('include-pure-jamv-attr'),
@@ -50,7 +50,8 @@ class JamvAttrLib extends LibraryLexer {
           JParse.include('jamv-attr-pos'),
           JParse.eventOnCondition(
               'only accept one size', [MATCHED(LEAVE: 'pop'), POP]),
-          JParse.include('jamv-attr-size'),
+          JParse.include('jamv-attr-size',
+              replaceAllNewStates: [MATCHED(), POP]),
           JParse.eventOnStateWillEnd()
         ],
         'jamv-attr-align': [

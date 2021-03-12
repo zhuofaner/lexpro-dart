@@ -21,6 +21,13 @@ class TokenContext implements Context {
 
   @override
   List<UnprocessedToken> get tokens => tkns;
+
+  @override
+  String toString() {
+    return '''
+${super.toString()}-added:$added
+''';
+  }
 }
 
 abstract class RawEventDispatcher {
@@ -35,7 +42,8 @@ abstract class FullEventListener extends RawEventDispatcher {
   onStateWillEnd(String stateName);
   onRuleWillStart(String ruleStartFlag);
   onRuleMissed(String ruleMissedFlag);
-  onRuleMatched(String stateName, {String enter, String leave});
+  onRuleMatched(String stateName, Context context,
+      {String enter, String leave});
   bool onCondition(String eventFlag);
   bool onConditionInclude(String eventFlag);
   bool dispatchEvent(
@@ -49,7 +57,8 @@ abstract class FullEventListener extends RawEventDispatcher {
         final Map data = decryptEvent(eventFlag);
 
         /// TODO: 分解字段
-        onRuleMatched(stateName, enter: data['enter'], leave: data['leave']);
+        onRuleMatched(stateName, context,
+            enter: data['enter'], leave: data['leave']);
         break;
       case Token.EventOnRuleMissed:
         onRuleMissed(eventFlag);
