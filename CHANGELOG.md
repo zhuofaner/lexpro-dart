@@ -18,8 +18,6 @@
 * support **Auto Completing** from **Constants and Enums** reuse a cached runtime context.
 (*not tested launched from other than **Lexer Main**)*
 
-* use **Sound Nullable Version**
-
 ## 1.1.0+1
 * bugs hotfix
 ## 1.1.0

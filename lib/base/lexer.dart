@@ -202,7 +202,9 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
       ? (config[CONFIG_USECACHE] as bool)
       : true;
   bool get configSaveRuntimeContext =>
-      config?.containsKey(CONFIG_SAVING_RUNTIME_CONTEXT) ?? false;
+      config?.containsKey(CONFIG_SAVING_RUNTIME_CONTEXT) ?? false
+          ? config[CONFIG_SAVING_RUNTIME_CONTEXT]
+          : true;
   List<Object> get configListTokenStateNames =>
       config?.containsKey(CONFIG_STATE_WILL_LIST_TOKENS) ?? false
           ? config[CONFIG_STATE_WILL_LIST_TOKENS] as List
@@ -223,6 +225,7 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
 
   List<String> _enumAllGiven(DynamicToken enumToken, String stateName) {
     // assert(enumToken.isEnum == true);
+    if (enumToken == null) return [];
     if (enumToken.isEnum) {
       if (enumToken.enums.isNotEmpty)
         return enumToken.enums;

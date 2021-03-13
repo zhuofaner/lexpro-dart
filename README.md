@@ -21,8 +21,6 @@ here is new features in 2.0.0
 * support **Auto Completing** from **Constants and Enums** reuse a cached runtime context.
 (*not tested launched from other than **Lexer Main**)*
 
-* use **Sound Nullable Version**
-
 ## 1.Event System
 ### usage 
 #### step1 : add Event Parsers in your Lexer:
