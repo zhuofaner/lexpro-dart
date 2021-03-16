@@ -118,6 +118,21 @@ enum Token {
   EventOnConditionInclude
 }
 
+/// Templates must be Enum(isEnum == true)
+class TemplateVars {
+  final List<Pattern> patterns;
+  final List<DynamicToken> enumvars;
+  final List<String> enumnone;
+  const TemplateVars({this.patterns, this.enumvars, this.enumnone});
+}
+
+class Templates extends DynamicToken {
+  final List<String> templates;
+  final TemplateVars vars;
+  Templates(this.templates, DynamicToken token, {this.vars})
+      : super(token?.name, token?.enums ?? const []);
+}
+
 /// easy for users to define their own Tokens
 class DynamicToken {
   final String name;
@@ -128,12 +143,14 @@ class DynamicToken {
   bool enumsEqual(Object token) {
     if (token is! DynamicToken) return false;
     DynamicToken other = token as DynamicToken;
-    if (other.isEnum && isEnum) {
+    // 名称相同
+    if (other.isEnum && isEnum && name == other.name) {
+      // 枚举值相同
       if (enums.isNotEmpty && other.enums.isNotEmpty) {
         return (enums..sort()).toString() == (other.enums..sort()).toString();
-      } else
-        return enums == other.enums;
+      } else if (enums.isEmpty && other.enums.isEmpty) return true;
     }
+    // 否则不同
     return false;
   }
 

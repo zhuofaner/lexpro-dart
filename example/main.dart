@@ -1,5 +1,6 @@
 // @dart=2.9
 import 'package:lexpro/base/lexer.dart';
+import 'package:lexpro/utils/tools.dart';
 import '../test/lexers/library/JamvAttrLib.dart';
 
 const DynamicToken TAG = DynamicToken('TAG');
@@ -137,7 +138,7 @@ class XMLlikeLexer extends DTokenedRegexLexer {
 
 void main() {
   const forTest = '''
-<correct width_10 green bgcolor:grey paddingLeft_10 >
+<correct width="10" green bgcolor:grey paddingLeft_10 >
 	<p black87 text-right/>
 </correct>
 <error 10 center>
@@ -249,5 +250,7 @@ void main() {
 //                     total: 19
 
   print(lexer.autoCompleting('10', 'attr_or_end'));
-// [width_10, height_10, maxWidth_10, minWidth_10, maxHeight_10, minHeight_10]
+// [width="10, width="10", height="10, height="10", maxWidth="10, minWidth="10, maxWidth="10", minWidth="10", maxHeight="10, minHeight="10, maxHeight="10", minHeight="10"]
+  print(lexer.splitAutoCompleting(['a', 'l', 'c', 't', 'r'], 'attr_or_end'));
+  // [text-align="center", align="center"]
 }

@@ -74,9 +74,9 @@ class JamvAttrLib extends LibraryLexer {
             AlignValuesSL
           ], [
             DynamicToken.fromEnum([TextAlignSV], named: Attr),
-            DynamicToken.asEnum(Vstart),
-            DynamicToken.fromEnum(TextAlignValuesSL, named: ValuePart),
-            DynamicToken.asEnum(Vend)
+            DynamicToken.fromEnum(['="'], named: Vstart),
+            DynamicToken.fromEnum(AlignValuesSL, named: ValuePart),
+            DynamicToken.fromEnum(['"'], named: Vend)
           ], [
             POP
           ]),
@@ -100,6 +100,8 @@ class JamvAttrLib extends LibraryLexer {
             SizeSL
           ], [
             DynamicToken.fromEnum(SizeSL, named: Attr),
+            // will be conflict with '_'(if in the same state)
+            // better change to DynamicToken.fromEnum('="');
             DynamicToken.asEnum(Vstart),
             DynamicToken.asEnum(ValuePart),
             DynamicToken.asEnum(Vend)
@@ -110,6 +112,8 @@ class JamvAttrLib extends LibraryLexer {
             SizeSL
           ], [
             DynamicToken.fromEnum(SizeSL, named: Attr),
+            // will be conflict with '="'(if in the same state)
+            // better change to DynamicToken.fromEnum('_');
             DynamicToken.asEnum(Vstart),
             DynamicToken.asEnum(ValuePart),
           ], [

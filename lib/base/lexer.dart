@@ -269,21 +269,194 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
     // }else return [];
   }
 
+  /// Match wd10 to width_10
+  /// matchMode:
+  /// 1 // all rules match at least one splitText
+  /// 2 // fast match one and don't match other splitTexts
+  /// 3 // strict mode, all splitTexts must have match.
+  List<String> splitAutoCompleting(List<String> splitText, String stateName,
+      {int matchMode = 3}) {
+    assert(_runtimeContext != null);
+    List<List<RegExpMatch>> matches = [];
+
+    /// step1: find matches;
+    _runtimeContext[stateName]?.whereType<JParse>()?.forEach((jparse) {
+      if (jparse.isConst && jparse is! GroupJParse) {
+        matches.addAll(enumSplitMatches(splitText, jparse.constants));
+      } else if (jparse is GroupJParse &&
+          jparse.groupDTokens.any((dtoken) => dtoken.isEnum)) {
+        // print(element.pattern);
+        List<List<String>> constantRules = jparse.groupDTokens
+            .map<List<String>>((dtoken) => _enumAllGiven(dtoken, stateName))
+            .toList(growable: false);
+        // if (constantRules[0].contains('align')) {
+        //   constantRules = jparse.groupDTokens.map<List<String>>((dtoken) {
+        //     return _enumAllGiven(dtoken, stateName, debug: true);
+        //   }).toList();
+        // }
+        if (jparse.groupDTokens.any((dtoken) => dtoken is Templates)) {
+          // List<List<Map<String, dynamic>>> message = [];
+          List<List<List<dynamic>>> templateRes = [];
+
+          //处理模板
+          jparse.groupDTokens.forEach((dtoken) {
+            List<List<dynamic>> temp = [];
+            if (dtoken is Templates) {
+              /// 处理变量
+              Map<int, Map<String, List<String>>> enumStrings = {};
+              if (dtoken.vars != null) {
+                final enumvars = dtoken.vars.enumvars;
+                assert(enumvars != null);
+                final enumnone = dtoken.vars.enumnone;
+                final patterns = dtoken.vars.patterns;
+                for (var i = 0; i < enumvars.length; i++) {
+                  if (patterns != null) {
+                    var range = splitTextRange(patterns[i], splitText);
+                    if (range.isNotEmpty) {
+                      enumStrings[i] = {
+                        'value': [range.join()],
+                        'depart': range
+                      };
+                    }
+                  }
+                  if (enumStrings[i] == null) {
+                    var enums = _enumAllGiven(enumvars[i], stateName);
+                    if (enums.isNotEmpty) {
+                      enumStrings[i] = {'value': enums};
+                    }
+                  }
+                  if (enumStrings[i] == null && enumnone != null) {
+                    enumStrings[i] = {
+                      'value': [enumnone[i]]
+                    };
+                  }
+                }
+              }
+
+              /// 替换变量
+              dtoken.templates.forEach((template) {
+                List<String> splits;
+
+                /// 情况1： 没有变量直接添加
+                if ((splits = template.split(r'\$'))
+                    .every((item) => !item.contains(r'$'))) {
+                  temp.add([splits.join(r'$'), []]);
+                  return;
+                }
+
+                /// 情况2：有变量但没有定义变量则退出
+                if (dtoken.vars == null) return;
+                List<List<List<String>>> splitExpands = [
+                  [splits, []]
+                ];
+
+                /// 情况3：有变量有定义
+                /// 从 enumStrings 中去取
+                for (var j = dtoken.vars.enumvars.length; j >= 0; j--) {
+                  splitExpands = splitExpands.expand((splitSL) {
+                    List<String> parts = splitSL[0];
+                    List<String> matched = splitSL[1];
+                    if (parts.contains(varName(j))) {
+                      // 情况3.1：定义了变量但是 enumStrings没有 则去除该条规则
+                      if (enumStrings[j] == null) return [];
+                      var res = [];
+                      enumStrings[j]['value'].forEach((varValue) {
+                        res.add([
+                          parts
+                              .map((part) =>
+                                  part.replaceAll(varName(j), varValue))
+                              .toList(),
+                          [...matched, ...enumStrings[j]['depart']]
+                        ]);
+                      });
+                      // []..add([splitSL[0], splitSL[1]]);
+                      return res;
+                    } else
+                      return [splitSL];
+                  });
+                }
+                temp.addAll(splitExpands
+                    .map<List<dynamic>>(
+                        (splitItem) => [splitItem[0].join(r'$'), splitItem[1]])
+                    .toList());
+              });
+
+              // return [[_inject(dtoken.templates[0],listVars), departVars]]
+            }
+
+            /// 占位
+            templateRes.add(temp);
+          });
+          matches.addAll(enumSplitMatches(splitText, constantRules,
+              matchMode: matchMode,
+              templates: templateRes
+                  .map((e) => e.map<String>((e) => e[0] as String).toList())
+                  .toList(),
+              matchedFromTemplate: templateRes
+                  .map((e) =>
+                      e.map<List<String>>((e) => e[1] as List<String>).toList())
+                  .toList()));
+        }
+        matches.addAll(
+            enumSplitMatches(splitText, constantRules, matchMode: matchMode));
+      }
+    });
+
+    /// step2: sort
+    /// 从左到右 -> 优先
+    /// start 小 ->
+    /// input.length 小 ->
+    matches
+      ..sort((left, right) {
+        if (left.length < right.length) {
+          return -1;
+        }
+        return 1;
+      });
+
+    /// step3: 用 Set 去重
+    return (Set<String>()..addAll(matches.map<String>((m) => m[0].input)))
+        .toList();
+  }
+
+  /// Match wid to width
+  /// errorText will be match
   List<String> autoCompleting(String errorText, String stateName) {
     assert(_runtimeContext != null);
     List<RegExpMatch> matches = [];
+    bool warnedToUseSplitAutoCompleting = false;
 
     /// step1: find matches;
-    _runtimeContext[stateName]?.whereType<JParse>()?.forEach((element) {
-      if (element.isConst && element is! GroupJParse) {
-        matches.addAll(enumAllMatches(errorText, element.constants));
-      } else if (element is GroupJParse &&
-          element.groupDTokens.any((dtoken) => dtoken.isEnum)) {
+    _runtimeContext[stateName]?.whereType<JParse>()?.forEach((jparse) {
+      if (jparse.isConst && jparse is! GroupJParse) {
+        matches.addAll(enumAllMatches(errorText, jparse.constants));
+      } else if (jparse is GroupJParse &&
+          jparse.groupDTokens.any((dtoken) => dtoken.isEnum)) {
         // print(element.pattern);
-        var constantRules = element.groupDTokens
+        var constantRules = jparse.groupDTokens
             .map<List<String>>((dtoken) => _enumAllGiven(dtoken, stateName))
             .toList(growable: false);
-        matches.addAll(enumAllMatches(errorText, constantRules));
+        List<List<String>> templates;
+
+        if (jparse.groupDTokens.any((dtoken) => dtoken is Templates)) {
+          templates = jparse.groupDTokens.map((dtoken) {
+            if (dtoken is Templates) {
+              if (dtoken.vars != null) {
+                if (warnedToUseSplitAutoCompleting == false) {
+                  warnedToUseSplitAutoCompleting = true;
+                }
+                return []
+                  ..addAll(dtoken.templates)
+                  ..removeWhere((template) =>
+                      template.replaceAll(r'\$', '').contains(r'$'));
+              }
+              return dtoken.templates;
+            }
+            return null;
+          }).toList(growable: false);
+        }
+        matches.addAll(
+            enumAllMatches(errorText, constantRules, templates: templates));
       }
     });
 
@@ -300,6 +473,11 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
         }
         return 1;
       });
+    if (warnedToUseSplitAutoCompleting == true) {
+      print(
+          '\nWarning:Template Variable Injection only work in splitAutoCompleting!\n'
+          r'All templates with symbol($) will be ignored');
+    }
 
     /// step3: 用 Set 去重
     return (Set<String>()..addAll(matches.map<String>((m) => m.input)))

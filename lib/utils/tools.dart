@@ -161,16 +161,114 @@ smartMatch(String text, List<List<String>> constantRules,
   }
 }
 
-List<RegExpMatch> enumAllMatches(
-    String text, List<List<String>> constantRules) {
+List<List<RegExpMatch>> enumSplitMatches(
+    List<String> splitText, List<List<String>> constantRules,
+    {List<List<String>> templates,
+    List<List<List<String>>> matchedFromTemplate,
+
+    /// mode=1; 全部返回（默认）
+    /// mode=2; 存在匹配（最小匹配，不继续匹配其他，但速度最快，用于快速检测是否有值）
+    /// mode=3; 全称匹配（完整匹配）
+    int matchMode = 1}) {
+  List<List<RegExpMatch>> res = [];
+  List<List<dynamic>> allRules = [];
+  allRules.addAll(
+      enumAllConstants(constantRules).map<List<dynamic>>((e) => [e, null]));
+  if (templates != null) {
+    allRules.addAll(
+        enumSplitTemplates(constantRules, templates, matchedFromTemplate));
+  }
+  allRules.forEach((ruleWrapper) {
+    final rule = ruleWrapper[0];
+    final departTexts = ruleWrapper[1];
+    List<RegExpMatch> matches = [];
+    Iterable<String> it = splitText.expand((element) =>
+        (departTexts?.contains(element) ?? false) ? [] : [element]);
+    Function _inner = (text) {
+      RegExpMatch m;
+      if ((m = RegExp(text).firstMatch(rule)) != null) {
+        matches.add(m);
+        return true;
+      }
+      return false;
+    };
+    switch (matchMode) {
+      case 1:
+        it.forEach(_inner);
+        break;
+      case 2:
+        if (!it.any(_inner)) return;
+        break;
+      case 3:
+        if (!it.every(_inner)) return;
+    }
+    if (matches.isNotEmpty) {
+      res.add(matches);
+    }
+  });
+  return res;
+}
+
+List<RegExpMatch> enumAllMatches(String text, List<List<String>> constantRules,
+    {List<List<String>> templates}) {
   List<RegExpMatch> res = [];
-  enumAllConstants(constantRules).forEach((rule) {
+  List<String> allRules = [];
+  allRules.addAll(enumAllConstants(constantRules));
+  if (templates != null) {
+    allRules.addAll(enumAllTemplates(constantRules, templates));
+  }
+  allRules.forEach((rule) {
     RegExpMatch m;
     if ((m = RegExp(text).firstMatch(rule)) != null) {
       res.add(m);
     }
   });
   return res;
+}
+
+List<String> splitTextRange(String pattern, List<String> splitText,
+    {List<int> cacheRange,
+    int mode =
+        3 // 1: Biggest(最大覆盖，两端的匹配片段可能未被完全匹配) 2: Smallest(最小覆盖，裁减掉两端多余匹配) 3:必须正好
+    }) {
+  RegExpMatch m;
+  cacheRange ??= range(splitText);
+  if ((m = RegExp(pattern).firstMatch(splitText.join())) != null) {
+    var start = 0;
+    for (; start <= splitText.length; start++) {
+      if (mode == 3 && cacheRange[start] == m.start) {
+        break;
+      } else if (mode == 2 && cacheRange[start] >= m.start) {
+        break;
+      } else if (mode == 1 &&
+          cacheRange[start] <= m.start &&
+          cacheRange[start + 1] > m.start) {
+        break;
+      }
+    }
+    var end = start;
+    for (; end <= splitText.length; end++) {
+      if (mode == 3 && cacheRange[end] == m.end) {
+        break;
+      } else if (mode == 2 &&
+          cacheRange[end] <= m.end &&
+          cacheRange[end + 1] > m.end) {
+        break;
+      } else if (mode == 1 && cacheRange[end] >= m.end) {
+        break;
+      }
+    }
+    return splitText.sublist(start, end);
+  }
+}
+
+List<int> range(List<String> texts) {
+  if (texts?.isEmpty ?? true) return [];
+  List<int> ranges = [0];
+  texts.forEach((element) {
+    ranges.add(ranges.last + element.length);
+  });
+  return ranges;
 }
 
 String constantEscape(String constant) {
@@ -203,7 +301,54 @@ String constantEscape(String constant) {
   }).join(r'\\');
 }
 
+//每一个 String template 规则 对应一个 List<String> matchedFromTemplate
+//返回一个 [['rule', ['var1','var2']],..]
+List<List<dynamic>> enumSplitTemplates(
+    List<List<String>> constantRules,
+    List<List<String>> templates,
+    List<List<List<String>>> matchedFromTemplate) {
+  if (templates?.isEmpty ?? true) return [];
+  var i;
+  List<List<dynamic>> res = [];
+  for (i = 0; i < templates.length; i++) {
+    if (templates[i] != null)
+      res.addAll(multiply(enumAllConstants(constantRules.sublist(0, i)),
+          templates[i], matchedFromTemplate[i]));
+  }
+  return res;
+}
+
+/// wd10 匹配 width_10
+/// width_$
+/// minwidth_$
+/// maxwidth_$
+List<String> enumAllTemplates(
+    List<List<String>> constantRules, List<List<String>> templates) {
+  if (templates?.isEmpty ?? true) return <String>[];
+  var i;
+  List<String> res = <String>[];
+  for (i = 0; i < templates.length; i++) {
+    if (templates[i] != null)
+      res.addAll(enumAllConstants(
+          [enumAllConstants(constantRules.sublist(0, i)), templates[i]]));
+  }
+  return res;
+}
+
+List<List<dynamic>> multiply(
+    List<String> patterns, List<String> templates, List<List<String>> matched) {
+  List<List<dynamic>> res = [];
+  for (var i = 0; i < templates.length; i++) {
+    patterns.forEach((pattern) {
+      var constant = pattern + templates[i];
+      res.add([constant, (matched != null ? matched[i] : [])]);
+    });
+  }
+  return res;
+}
+
 List<String> enumAllConstants(List<List<String>> constantRules) {
+  if (constantRules?.isEmpty ?? true) return <String>[];
   var res = constantRules.reduce((value, element) {
     if (value.isEmpty)
       return element;
@@ -254,4 +399,15 @@ String enumTokenName(Object token) {
   } else
     name = token.toString();
   return name;
+}
+
+String varName(int index) => index == 0 ? r'$' : r'$' '$index';
+
+wrapPrintRegExpLL(List<List<RegExpMatch>> target) {
+  target.forEach((inner) {
+    print('\n[' + inner[0].input);
+    inner.forEach((exp) => print('\n${exp.group(0)} : ${exp.start}'));
+    print(']');
+  });
+  return target;
 }

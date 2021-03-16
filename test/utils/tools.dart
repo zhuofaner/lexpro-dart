@@ -179,6 +179,56 @@ void main() {
     });
   });
 
+  group('Utils.enumAllTemplates', () {
+    test('1', () {
+      expect(
+          enumAllTemplates([
+            ['9patch'],
+            [],
+            [],
+            [],
+            []
+          ], [
+            ['9patch']
+          ]),
+          equals(['9patch']));
+    });
+    test('2', () {
+      expect(
+          enumAllTemplates([
+            ['a', 'b', ''],
+            ['1', '2'],
+            [],
+            [],
+          ], [
+            ['a1_0_0', 'b2_0_0'],
+            ['1_1_1', '2_2_2'],
+            ['_3_3', '_4_4']
+          ]),
+          equals([
+            'a1_0_0',
+            'b2_0_0',
+            'a1_1_1',
+            'a2_2_2',
+            'b1_1_1',
+            'b2_2_2',
+            '1_1_1',
+            '2_2_2',
+            'a1_3_3',
+            'a1_4_4',
+            'a2_3_3',
+            'a2_4_4',
+            'b1_3_3',
+            'b1_4_4',
+            'b2_3_3',
+            'b2_4_4',
+            '1_3_3',
+            '1_4_4',
+            '2_3_3',
+            '2_4_4'
+          ]));
+    });
+  });
   group('Utils.const2Pattern', () {
     test('1', () {
       expect(const2Pattern(constants),
@@ -189,6 +239,150 @@ void main() {
             ['?', r'3\4']
           ]),
           equals(r'(\(name\+bad\))?(\?|3\\4)'));
+    });
+  });
+  group('Utils.enumSplitMatches', () {
+    test('multiply', () {
+      expect(
+          multiply([
+            'a1',
+            'a2',
+            'm0',
+            'm4'
+          ], [
+            '_0_0_0_admin',
+            '-0-did-admin-0'
+          ], [
+            ['0', 'admin'],
+            ['0', 'did', 'admin']
+          ]),
+          equals([
+            [
+              'a1_0_0_0_admin',
+              ['0', 'admin']
+            ],
+            [
+              'a2_0_0_0_admin',
+              ['0', 'admin']
+            ],
+            [
+              'm0_0_0_0_admin',
+              ['0', 'admin']
+            ],
+            [
+              'm4_0_0_0_admin',
+              ['0', 'admin']
+            ],
+            [
+              'a1-0-did-admin-0',
+              ['0', 'did', 'admin']
+            ],
+            [
+              'a2-0-did-admin-0',
+              ['0', 'did', 'admin']
+            ],
+            [
+              'm0-0-did-admin-0',
+              ['0', 'did', 'admin']
+            ],
+            [
+              'm4-0-did-admin-0',
+              ['0', 'did', 'admin']
+            ]
+          ]));
+      ;
+    });
+    test('enumSplitTemplates', () {
+      expect(
+          enumSplitTemplates([
+            ['width', 'height'],
+            ['_', '='],
+            [r'$', ''],
+            ['100', '200']
+          ], [
+            null,
+            [],
+            [r'$400', r'$0'],
+            ['300']
+          ], [
+            [],
+            null,
+            [
+              [r'$', '4', '0'],
+              [r'$', '0']
+            ],
+            null
+          ]),
+          equals([
+            [
+              r'width_$400',
+              [r'$', '4', '0']
+            ],
+            [
+              r'width=$400',
+              [r'$', '4', '0']
+            ],
+            [
+              r'height_$400',
+              [r'$', '4', '0']
+            ],
+            [
+              r'height=$400',
+              [r'$', '4', '0']
+            ],
+            [
+              r'width_$0',
+              [r'$', '0']
+            ],
+            [
+              r'width=$0',
+              [r'$', '0']
+            ],
+            [
+              r'height_$0',
+              [r'$', '0']
+            ],
+            [
+              r'height=$0',
+              [r'$', '0']
+            ],
+            [r'width_$300', []],
+            [r'width_300', []],
+            [r'width=$300', []],
+            [r'width=300', []],
+            [r'height_$300', []],
+            [r'height_300', []],
+            [r'height=$300', []],
+            ['height=300', []]
+          ]));
+    });
+    test('enumSplitMatches', () {
+      expect(
+          wrapPrintRegExpLL(enumSplitMatches(
+              ['w', 'd', '3'],
+              [
+                ['width', 'height'],
+                ['_', '='],
+                [r'$', ''],
+                ['100', '200']
+              ],
+              matchMode: 2,
+              templates: [
+                null,
+                [],
+                [r'$400', r'$0'],
+                ['300']
+              ],
+              matchedFromTemplate: [
+                [],
+                null,
+                [
+                  [r'$', '4', '0'],
+                  [r'$', '0']
+                ],
+                null
+              ])),
+          equals([]));
     });
   });
 }
