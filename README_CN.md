@@ -1,4 +1,5 @@
 # lexpro 2
+[<img src="https://pic1.zhimg.com/v2-1570b618531c9b0bcf6d273d5fe88cfa_1440w.jpg" width="800"/>](https://zhuanlan.zhihu.com/p/356951579)
 
 ## 前言：
 
@@ -10,9 +11,52 @@
 
 ## New Feature 新特性
 
-here is new features in 2.0.0
+### here is new features in 2.1.0
+### 这是2.1版本的新重要特性
 
-这是2.0版本的重要新特性
+* support **Templates** extends JParse
+
+* 支持模板匹配
+    
+> for better match for split text auto completing.  
+> 模板匹配是为了分隔文字的匹配而优化
+  
+  *
+    - use `$`、`$1`、`$2` .. for variable injection in a template string.
+    
+    - 模板匹配中使用美元符号 `$` 代表变量，`$`表示第一个变量，`$1`表示第二个，以此类推。
+    
+    - support `variables extracting` from exited `tokens` or matches a `pattern` from the given split text.
+
+    - 支持将变量匹配已知符号（含已知枚举 和做为枚举两类枚举符号），或者从分隔文本中匹配正则表达式来提取。
+  
+    - support extracting failed basic variable value
+
+    - 如果以上匹配值都为空，支持设置一个默认值
+    
+    - if `enumnone` not given and extracting failed to match anyone, template rule with symbol `$` ignored.
+
+    - 如果没有默认值变量值为空，则该条含有变量注入的模板规则被跳过，不含变量的规则不受影响。
+
+* support `splitAutoCompleting` which can match split words that `autoCompleting` can not match
+    
+* 自动补全现在支持将目标文本分隔成几个部分进行全量匹配（分隔的几个部分都要有所匹配）
+
+    - `wd40` split in letters `w` `d` `4` `0` **matches** width_40、width="40"、maxWidth_40、minWidth_40、 maxWidth="40"、minWidth="40"
+    
+    - 它可以匹配 `wd40` 这种非完整连接的单词和数字的组合， 将其应用于诸如 `width_$`，`minWidth="$"` 的模板规则中，从而完成自动补全。
+
+    - if `length="400"` exists, wd40 also matches width_400
+
+    - 也可以通过设置`$` 匹配 DynamicToken.asEnum(Number)来代入用户输入过的数字，比如这里的 40 也匹配 400。
+
+注意：模板规则应被设置成从当前符号位置匹配至结尾
+比如有五个符号位 Attr、Number、Number、Number、Number
+在四个位置的匹配规则应该如下 `width_$_0_$_0`、`_$_$_$_$`、`_0_0_0`、`_0_0`、`_0`
+
+### here is features in 2.0.0
+
+### 这是2.0版本的重要特性
 
 * support **Event System** to build your AST or directly do your stuff.
 * 支持用来构建语法树或者直接做你想做的操作的 **事件机制**

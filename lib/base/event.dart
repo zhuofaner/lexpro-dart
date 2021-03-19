@@ -35,8 +35,35 @@ abstract class RawEventDispatcher {
       Token eventType, String eventFlag, String stateName, Context context);
 }
 
+mixin BlankComplementMixin on FullEventListener {
+  @override
+  bool onCondition(String eventFlag) {}
+
+  @override
+  bool onConditionInclude(String eventFlag) {}
+
+  @override
+  onRuleMatched(String stateName, Context context,
+      {String enter, String leave}) {}
+
+  @override
+  onRuleMissed(String ruleMissedFlag) {}
+
+  @override
+  onRuleWillStart(String ruleStartFlag) {}
+
+  @override
+  onStateWillEnd(String stateName) {}
+
+  @override
+  onStateWillRestart(String stateName) {}
+
+  @override
+  onStateWillStart(String stateName) {}
+}
+
 /// You can directly extends RawEventDispatcher and define your own lifecycle.
-abstract class FullEventListener extends RawEventDispatcher {
+abstract class FullEventListener implements RawEventDispatcher {
   onStateWillStart(String stateName);
   onStateWillRestart(String stateName);
   onStateWillEnd(String stateName);

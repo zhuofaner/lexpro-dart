@@ -289,11 +289,6 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
         List<List<String>> constantRules = jparse.groupDTokens
             .map<List<String>>((dtoken) => _enumAllGiven(dtoken, stateName))
             .toList(growable: false);
-        // if (constantRules[0].contains('align')) {
-        //   constantRules = jparse.groupDTokens.map<List<String>>((dtoken) {
-        //     return _enumAllGiven(dtoken, stateName, debug: true);
-        //   }).toList();
-        // }
         if (jparse.groupDTokens.any((dtoken) => dtoken is Templates)) {
           // List<List<Map<String, dynamic>>> message = [];
           List<List<List<dynamic>>> templateRes = [];
