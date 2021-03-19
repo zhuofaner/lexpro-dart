@@ -1,4 +1,20 @@
+## 2.1.0
+
+* support **Templates** extends JParse
+    for better match for split text auto completing.
+
+    - use `$`、`$1`、`$2` .. for variable injection in a template string.
+    - support `variables extracting` from exited `tokens` or matches a `pattern` from the given split text.
+    - support extracting failed basic variable value
+    - if `enumnone` not given and extracting failed to match anyone, template rule with symbol `$` ignored.
+
+* support `splitAutoCompleting` which can match split words that `autoCompleting` can not match
+    
+    - `wd40` split in letters `w` `d` `4` `0` **matches** width_40、width="40"、maxWidth_40、minWidth_40、 maxWidth="40"、minWidth="40"
+    - if `length="400"` exists, wd40 also matches width_400
+
 ## 2.0.0
+
 * support **Event System** to build your AST or directly do your stuff.
     
     * support self defined `LIFE_CYCLE`s and `onCondition`s Events
