@@ -327,7 +327,7 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
                   // step1: 优先根据 pattern 从 splittext 提取
                   if (patterns != null) {
                     var range = splitTextRange(patterns[i], splitText);
-                    if (range.isNotEmpty) {
+                    if (range?.isNotEmpty ?? false) {
                       enumStrings[i] = {
                         'value': [range.join()],
                         'depart': range
