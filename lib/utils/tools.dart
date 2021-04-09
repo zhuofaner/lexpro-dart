@@ -338,6 +338,7 @@ List<String> enumAllTemplates(
 List<List<dynamic>> multiply(
     List<String> patterns, List<String> templates, List<List<String>> matched) {
   List<List<dynamic>> res = [];
+  if (patterns?.isEmpty ?? true) patterns = [''];
   for (var i = 0; i < templates.length; i++) {
     patterns.forEach((pattern) {
       var constant = pattern + templates[i];

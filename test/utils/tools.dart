@@ -242,7 +242,7 @@ void main() {
     });
   });
   group('Utils.enumSplitMatches', () {
-    test('multiply', () {
+    test('multiply1', () {
       expect(
           multiply([
             'a1',
@@ -291,6 +291,14 @@ void main() {
             ]
           ]));
       ;
+    });
+    test('multiply2', () {
+      expect(
+          multiply([], ['_0_0_0_admin', '-0-did-admin-0'], [[], []]),
+          equals([
+            ['_0_0_0_admin', []],
+            ['-0-did-admin-0', []]
+          ]));
     });
     test('enumSplitTemplates', () {
       expect(
@@ -382,7 +390,7 @@ void main() {
                 ],
                 null
               ])),
-          equals([]));
+          isNotEmpty);
     });
   });
 }

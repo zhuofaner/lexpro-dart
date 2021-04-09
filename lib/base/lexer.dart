@@ -133,6 +133,9 @@ const CONFIG_SAVING_RUNTIME_CONTEXT = 'savingRuntimeContext';
 const CONFIG_STATE_WILL_LIST_TOKENS = 'stateWillListTokens';
 const CONFIG_DEBUGGABLE = 'debuggable';
 const CONFIG_ENUMSTRICT = 'enumStrict';
+const CONFIG_GROUPCOUNT_STRICTCHECK = 'groupCountStrictCheck';
+const CONFIG_MATCHLENGTH_STRICTCHECK = 'matchLengthStrictCheck';
+const CONFIG_DEBUGPRINT_THROWERROR = 'debugPrintThrowError';
 // http://pygments.org/docs/lexerdevelopment
 //
 // The lexer base class used by almost all of Pygments’ lexers is the
@@ -215,6 +218,22 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
   bool get configEnumStrict => config?.containsKey(CONFIG_ENUMSTRICT) ?? false
       ? config[CONFIG_ENUMSTRICT]
       : false;
+  bool get configGroupCountStrictCheck =>
+      config?.containsKey(CONFIG_GROUPCOUNT_STRICTCHECK) ?? false
+          ? config[CONFIG_GROUPCOUNT_STRICTCHECK]
+          : true;
+  bool get configMatchLengthStrictCheck =>
+      config?.containsKey(CONFIG_MATCHLENGTH_STRICTCHECK) ?? false
+          ? config[CONFIG_MATCHLENGTH_STRICTCHECK]
+          : true;
+  bool get configDebugPrintThrowError =>
+      config?.containsKey(CONFIG_DEBUGPRINT_THROWERROR) ?? false
+          ? config[CONFIG_DEBUGPRINT_THROWERROR]
+          : false;
+  printThrow(String text) {
+    if (configDebugPrintThrowError) throw text;
+    print(text);
+  }
 
   /// You don't have to merge like this
   /// return { ...currentCommon, [your Def]: bla bla bla}
@@ -305,6 +324,7 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
                 final enumnone = dtoken.vars.enumnone;
                 final patterns = dtoken.vars.patterns;
                 for (var i = 0; i < enumvars.length; i++) {
+                  // step1: 优先根据 pattern 从 splittext 提取
                   if (patterns != null) {
                     var range = splitTextRange(patterns[i], splitText);
                     if (range.isNotEmpty) {
@@ -314,12 +334,14 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
                       };
                     }
                   }
+                  // step2: 其次从枚举值中提取
                   if (enumStrings[i] == null) {
                     var enums = _enumAllGiven(enumvars[i], stateName);
                     if (enums.isNotEmpty) {
                       enumStrings[i] = {'value': enums};
                     }
                   }
+                  // step3: 最后从enumnone中提取兜底数据
                   if (enumStrings[i] == null && enumnone != null) {
                     enumStrings[i] = {
                       'value': [enumnone[i]]
@@ -388,8 +410,10 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
                   .map((e) => e.map<String>((e) => e[0] as String).toList())
                   .toList(),
               matchedFromTemplate: templateRes
-                  .map((e) =>
-                      e.map<List<String>>((e) => e[1] as List<String>).toList())
+                  .map((e) => e
+                      .map<List<String>>((e) =>
+                          e[1].isEmpty ? <String>[] : e[1] as List<String>)
+                      .toList())
                   .toList()));
         }
         matches.addAll(
@@ -535,6 +559,9 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
 |  $CONFIG_STATE_WILL_LIST_TOKENS : ${configListTokenStateNames}
 |  $CONFIG_USECACHE : ${useCache}
 |  $CONFIG_ENUMSTRICT : ${configEnumStrict}
+|  $CONFIG_GROUPCOUNT_STRICTCHECK : ${configGroupCountStrictCheck}
+|  $CONFIG_MATCHLENGTH_STRICTCHECK : ${configMatchLengthStrictCheck}
+|  $CONFIG_DEBUGPRINT_THROWERROR : ${configDebugPrintThrowError}
 +============================
 ''');
     if (configListTokenStateNames == null || _tokensUnprocessed == null) return;
@@ -597,6 +624,12 @@ $totalPadding
   // Stream<Tuple2<index, token, value>>
   List<UnprocessedToken> _tokensUnprocessed;
   Iterable<UnprocessedToken> getTokensUnprocessed(String text,
+          [List<String> stack,
+          Position pos,
+          Map<String, List<T>> commondefs]) =>
+      __innerGetTokensUnprocessed(text, stack, pos, commondefs);
+
+  Iterable<UnprocessedToken> __innerGetTokensUnprocessed(String text,
       [List<String> stack, Position pos, Map<String, List<T>> commondefs]) {
     // init 变量
     var ret = <UnprocessedToken>[];
@@ -732,8 +765,8 @@ $totalPadding
           }
           statestack.add(lexer.root);
           var pos_before = pos.from;
-          Iterable<UnprocessedToken> res =
-              lexer.getTokensUnprocessed(text, statestack, pos, commondefs);
+          Iterable<UnprocessedToken> res = lexer.__innerGetTokensUnprocessed(
+              text, statestack, pos, commondefs);
           _runtimeContext = lexer._runtimeContext;
           ret.addAll(res);
           if (pos.from > pos_before) {
@@ -753,14 +786,34 @@ $totalPadding
         );
 
         final m = regex.matchAsPrefix(text, pos.from);
-
         if (m != null) {
           if (token != null && m.group(0).isNotEmpty) {
             if (token == Token.ParseByGroups) {
-              ret.addAll(this._bygroup(
-                  m,
-                  parse.groupTokens ?? (parse as GroupJParse).groupDTokens,
-                  currentStateName()));
+              List<Object> groupTokens =
+                  parse.groupTokens ?? (parse as GroupJParse).groupDTokens;
+              if (m.groupCount != groupTokens.length &&
+                  configGroupCountStrictCheck) {
+                printThrow('''Warning: groupCount unequal
+                r'${pattern}' in $solidEventStateName gives ${m.groupCount} groups while tokens give ${groupTokens.length}
+                Use null if known as blank match or give a Token.Text token to match the count.
+                ''');
+              }
+              Iterable<UnprocessedToken> willAdd =
+                  this._bygroup(m, groupTokens, currentStateName());
+              if (configMatchLengthStrictCheck) {
+                var countLength = willAdd.fold(
+                    0,
+                    (previousValue, element) =>
+                        previousValue + element.match.length);
+                var originLength = m.group(0).length;
+                if (countLength != originLength) {
+                  printThrow('''Warning: matchLength unequal
+                r'${pattern}' in $solidEventStateName matches ${m.group(0)} with length ${originLength} while tokens link as ${processedString(unprocessedTokens: willAdd)} with length $countLength
+                Use null if known as blank match or give a Token.Text token to match the count.
+                ''');
+                }
+              }
+              ret.addAll(willAdd);
             } else {
               ret.add(UnprocessedToken(
                   pos.from, token, m.group(0), currentStateName(), debuggable));
@@ -784,24 +837,24 @@ $totalPadding
       if (!matched) {
         // We are here only if all state tokens have been considered
         // and there was not a match on any of them.
-        try {
-          if (text[pos.from] == '\n') {
-            _popTo(statestack, root);
-            statetokens = parsedefs[root];
-            ret.add(UnprocessedToken(pos.from, Token.Text, '\n',
-                statestack.isEmpty ? root : statestack.last, debuggable));
-            pos.from++;
-            continue;
-          }
-          // print(
-          //     'Error starts from "${text.substring(pos.from)}" in statestack: $statestack \n');
-          ret.add(UnprocessedToken(pos.from, Token.Error, text[pos.from],
-              currentStateName(), debuggable));
+        // try {
+        if (text[pos.from] == '\n') {
+          _popTo(statestack, root);
+          statetokens = parsedefs[root];
+          ret.add(UnprocessedToken(pos.from, Token.Text, '\n',
+              statestack.isEmpty ? root : statestack.last, debuggable));
           pos.from++;
-        } on Exception catch (err) {
-          print(err);
-          break;
+          continue;
         }
+        // print(
+        //     'Error starts from "${text.substring(pos.from)}" in statestack: $statestack \n');
+        ret.add(UnprocessedToken(pos.from, Token.Error, text[pos.from],
+            currentStateName(), debuggable));
+        pos.from++;
+        // } on Exception catch (err) {
+        //   print(err);
+        //   break;
+        // }
       }
     }
     return _tokensUnprocessed = ret;
