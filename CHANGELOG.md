@@ -1,3 +1,8 @@
+## 2.1.1
+
+* fix some bugs
+* add `splitAutoCompletingMatches` to get a detailed List< List< RegExpMatch>> to decorate your autoCompleting ListView
+
 ## 2.1.0
 
 * support **Templates** extends JParse

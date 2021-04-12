@@ -4,6 +4,10 @@
 
 [中文版](https://github.com/zhuofaner/lexpro-dart/blob/master/README_CN.md)
 
+Here is new features in 2.1.1
+
+* add `splitAutoCompletingMatches` to get a detailed List< List< RegExpMatch>> to decorate your autoCompleting ListView
+
 Here is new features in 2.1
 
 * support **Templates** extends JParse
