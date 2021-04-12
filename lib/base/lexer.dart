@@ -288,20 +288,49 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
     // }else return [];
   }
 
+  List<String> splitAutoCompleting(List<String> splitText, String stateName,
+      {int matchMode = 3}) {
+    /// step1: find matches;
+    List<List<RegExpMatch>> matches =
+        splitAutoCompletingMatches(splitText, stateName, matchMode: matchMode);
+
+    /// step2: sort
+    /// 从左到右 -> 优先
+    /// start 小 ->
+    /// input.length 小 ->
+    matches
+      ..sort((left, right) {
+        if (left[0].input.length < right[0].input.length) {
+          return -1;
+        }
+        return 1;
+      });
+
+    /// step3: 用 Set 去重
+    return (Set<String>()
+          ..addAll(matches
+              .map<String>((m) => m[0].input)
+              .where((element) => element != splitText.join())))
+        .toList();
+  }
+
   /// Match wd10 to width_10
   /// matchMode:
   /// 1 // all rules match at least one splitText
   /// 2 // fast match one and don't match other splitTexts
   /// 3 // strict mode, all splitTexts must have match.
-  List<String> splitAutoCompleting(List<String> splitText, String stateName,
+  List<List<RegExpMatch>> splitAutoCompletingMatches(
+      List<String> splitText, String stateName,
       {int matchMode = 3}) {
     assert(_runtimeContext != null);
+
+    ///  一个 rule 对应 每个splitText在该rule中对应的 text 位置
     List<List<RegExpMatch>> matches = [];
 
-    /// step1: find matches;
     _runtimeContext[stateName]?.whereType<JParse>()?.forEach((jparse) {
       if (jparse.isConst && jparse is! GroupJParse) {
-        matches.addAll(enumSplitMatches(splitText, jparse.constants));
+        matches.addAll(enumSplitMatches(splitText, jparse.constants,
+            matchMode: matchMode));
       } else if (jparse is GroupJParse &&
           jparse.groupDTokens.any((dtoken) => dtoken.isEnum)) {
         // print(element.pattern);
@@ -338,13 +367,14 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
                   if (enumStrings[i] == null) {
                     var enums = _enumAllGiven(enumvars[i], stateName);
                     if (enums.isNotEmpty) {
-                      enumStrings[i] = {'value': enums};
+                      enumStrings[i] = {'value': enums, 'depart': []};
                     }
                   }
                   // step3: 最后从enumnone中提取兜底数据
                   if (enumStrings[i] == null && enumnone != null) {
                     enumStrings[i] = {
-                      'value': [enumnone[i]]
+                      'value': [enumnone[i]],
+                      'depart': []
                     };
                   }
                 }
@@ -369,33 +399,39 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
 
                 /// 情况3：有变量有定义
                 /// 从 enumStrings 中去取
-                for (var j = dtoken.vars.enumvars.length; j >= 0; j--) {
-                  splitExpands = splitExpands.expand((splitSL) {
+                /// ($/$1)对应第一个 $2对应第二个 $3对应第三个 依次类推..
+                /// index   0           1           2 ..
+                final varLength = dtoken.vars.enumvars.length;
+                for (var varIndex = varLength - 1; varIndex >= 0; varIndex--) {
+                  var _splitExpands =
+                      splitExpands.expand<List<List<String>>>((splitSL) {
                     List<String> parts = splitSL[0];
                     List<String> matched = splitSL[1];
-                    if (parts.contains(varName(j))) {
+                    if (parts.any((part) =>
+                        part.contains(varName(varIndex, varLength)))) {
                       // 情况3.1：定义了变量但是 enumStrings没有 则去除该条规则
-                      if (enumStrings[j] == null) return [];
-                      var res = [];
-                      enumStrings[j]['value'].forEach((varValue) {
+                      if (enumStrings[varIndex] == null) return [];
+                      var res = <List<List<String>>>[];
+                      enumStrings[varIndex]['value'].forEach((varValue) {
                         res.add([
                           parts
-                              .map((part) =>
-                                  part.replaceAll(varName(j), varValue))
+                              .map((part) => part.replaceAll(
+                                  varName(varIndex, varLength), varValue))
                               .toList(),
-                          [...matched, ...enumStrings[j]['depart']]
+                          [...matched, ...enumStrings[varIndex]['depart']]
                         ]);
                       });
                       // []..add([splitSL[0], splitSL[1]]);
                       return res;
                     } else
                       return [splitSL];
-                  });
+                  }).toList();
+                  splitExpands = _splitExpands;
+                  temp.addAll(splitExpands
+                      .map<List<dynamic>>((splitItem) =>
+                          [splitItem[0].join(r'$'), splitItem[1]])
+                      .toList());
                 }
-                temp.addAll(splitExpands
-                    .map<List<dynamic>>(
-                        (splitItem) => [splitItem[0].join(r'$'), splitItem[1]])
-                    .toList());
               });
 
               // return [[_inject(dtoken.templates[0],listVars), departVars]]
@@ -420,22 +456,7 @@ abstract class RegexLexer<T extends Parse> extends Lexer {
             enumSplitMatches(splitText, constantRules, matchMode: matchMode));
       }
     });
-
-    /// step2: sort
-    /// 从左到右 -> 优先
-    /// start 小 ->
-    /// input.length 小 ->
-    matches
-      ..sort((left, right) {
-        if (left.length < right.length) {
-          return -1;
-        }
-        return 1;
-      });
-
-    /// step3: 用 Set 去重
-    return (Set<String>()..addAll(matches.map<String>((m) => m[0].input)))
-        .toList();
+    return matches;
   }
 
   /// Match wid to width

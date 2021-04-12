@@ -1,6 +1,7 @@
 // @dart=2.9
 import 'dart:math';
 
+import 'package:lexpro/base/parser.dart';
 import 'package:lexpro/utils/tools.dart';
 import 'package:test/test.dart';
 
@@ -391,6 +392,100 @@ void main() {
                 null
               ])),
           isNotEmpty);
+    });
+    test('enumSplitMatches 2:', () {
+      print(r'////////////matchMode=1//////////////');
+      expect(
+          wrapPrintRegExpLL(enumSplitMatches([
+            't',
+            'e',
+            'm',
+            'p'
+          ], [
+            ['top', 'right', 'bottom']
+          ], matchMode: 1)),
+          isNotEmpty);
+      print(r'////////////matchMode=2//////////////');
+      expect(
+          wrapPrintRegExpLL(enumSplitMatches([
+            't',
+            'e',
+            'm',
+            'p'
+          ], [
+            ['top', 'right', 'bottom']
+          ], matchMode: 2)),
+          isNotEmpty);
+
+      print(r'////////////matchMode=3 None//////////////');
+      expect(
+          wrapPrintRegExpLL(enumSplitMatches([
+            't',
+            'e',
+            'm',
+            'p'
+          ], [
+            ['top', 'right', 'bottom']
+          ], matchMode: 3)),
+          isEmpty);
+
+      print(r'////////////matchMode=3 Has top bottom//////////////');
+      expect(
+          wrapPrintRegExpLL(enumSplitMatches([
+            't',
+            'o',
+          ], [
+            ['top', 'right', 'bottom']
+          ], matchMode: 3)),
+          isNotEmpty);
+
+      print(r'////////////matchMode=3 Has bottom//////////////');
+      expect(
+          wrapPrintRegExpLL(enumSplitMatches([
+            'o',
+            't',
+          ], [
+            ['top', 'right', 'bottom']
+          ], matchMode: 3)),
+          isNotEmpty);
+    });
+  });
+  group('Utils.splitTextRange', () {
+    var in_letters = ['p', 'a', 'd', 'd', 'i', 'n', 'g', '_', '4', '0'];
+    var in_cut = ['pad', 'ding', '_40'];
+    var in_one = ['padding_40'];
+    test('range', () {
+      expect(range(in_letters), equals([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]));
+      expect(range(in_cut), equals([0, 3, 7, 10]));
+      expect(range(in_one), equals([0, 10]));
+    });
+    test('splitTextRange', () {
+      expect(splitTextRange(r'\d+', in_letters, mode: 3), equals(['4', '0']));
+      expect(splitTextRange(r'\d+', in_cut, mode: 3), equals([]));
+      expect(splitTextRange(r'\d+', in_one, mode: 3), equals([]));
+
+      expect(splitTextRange(r'\d+', in_letters, mode: 2), equals(['4', '0']));
+      expect(splitTextRange(r'\d+', in_cut, mode: 2), equals([]));
+      expect(splitTextRange(r'\d+', in_one, mode: 2), equals([]));
+
+      expect(splitTextRange(r'\d+', in_letters, mode: 1), equals(['4', '0']));
+      expect(splitTextRange(r'\d+', in_cut, mode: 1), equals(['_40']));
+      expect(splitTextRange(r'\d+', in_one, mode: 1), equals(['padding_40']));
+
+      expect(splitTextRange(r'd+ing_', in_cut, mode: 3), equals([]));
+      expect(splitTextRange(r'd+ing_', in_cut, mode: 2), equals(['ding']));
+      expect(splitTextRange(r'd+ing_', in_cut, mode: 1),
+          equals(['pad', 'ding', '_40']));
+    });
+  });
+  group('JParse', () {
+    test('JParse.constants', () {
+      expect(
+          JParse.constants([
+            ['a', 'b']
+          ], DynamicToken('Hh'))
+              .isConst,
+          true);
     });
   });
 }

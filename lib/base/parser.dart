@@ -74,11 +74,11 @@ class Parse {
 }
 
 class JParse extends Parse {
-  JParse(String pattern, this.dtoken, [newStates = null, this.constants = null])
+  JParse(String pattern, this.dtoken, [newStates, this.constants])
       : super(pattern, dtoken.token, newStates);
 
   final DynamicToken dtoken;
-  List<List<String>> constants;
+  final List<List<String>> constants;
   bool get isConst => constants != null;
   Token get token => dtoken.token;
   factory JParse.eventOnStateWillStart() =>
@@ -101,7 +101,7 @@ class JParse extends Parse {
           DynamicToken.from(Token.EventOnConditionInclude), skippingRules);
   @override
   copy({List<String> newStates}) =>
-      JParse(pattern, dtoken, newStates ?? this.newStates);
+      JParse(pattern, dtoken, newStates ?? this.newStates, constants);
 
   /// replaceAllNewStates: 批量替换所有newStates 包括 Include
   factory JParse.include(String s,

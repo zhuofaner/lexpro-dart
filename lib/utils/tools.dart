@@ -182,25 +182,27 @@ List<List<RegExpMatch>> enumSplitMatches(
     final rule = ruleWrapper[0];
     final departTexts = ruleWrapper[1];
     List<RegExpMatch> matches = [];
-    Iterable<String> it = splitText.expand((element) =>
+    Iterable<String> splitTextIterable = splitText.expand((element) =>
         (departTexts?.contains(element) ?? false) ? [] : [element]);
+    int start = 0;
     Function _inner = (text) {
-      RegExpMatch m;
-      if ((m = RegExp(text).firstMatch(rule)) != null) {
-        matches.add(m);
+      Iterable<RegExpMatch> m;
+      if ((m = RegExp(text).allMatches(rule, start)).isNotEmpty) {
+        start = m.first.end;
+        matches.add(m.first);
         return true;
       }
       return false;
     };
     switch (matchMode) {
       case 1:
-        it.forEach(_inner);
+        splitTextIterable.forEach(_inner);
         break;
       case 2:
-        if (!it.any(_inner)) return;
+        if (!splitTextIterable.any(_inner)) return;
         break;
       case 3:
-        if (!it.every(_inner)) return;
+        if (!splitTextIterable.every(_inner)) return;
     }
     if (matches.isNotEmpty) {
       res.add(matches);
@@ -235,31 +237,44 @@ List<String> splitTextRange(String pattern, List<String> splitText,
   cacheRange ??= range(splitText);
   if ((m = RegExp(pattern).firstMatch(splitText.join())) != null) {
     var start = 0;
+    bool hasStart = false;
     for (; start <= splitText.length; start++) {
       if (mode == 3 && cacheRange[start] == m.start) {
+        hasStart = true;
         break;
       } else if (mode == 2 && cacheRange[start] >= m.start) {
+        hasStart = true;
         break;
       } else if (mode == 1 &&
           cacheRange[start] <= m.start &&
-          cacheRange[start + 1] > m.start) {
+          (start + 1 == cacheRange.length || cacheRange[start + 1] > m.start)) {
+        hasStart = true;
         break;
       }
     }
-    var end = start;
-    for (; end <= splitText.length; end++) {
-      if (mode == 3 && cacheRange[end] == m.end) {
-        break;
-      } else if (mode == 2 &&
-          cacheRange[end] <= m.end &&
-          cacheRange[end + 1] > m.end) {
-        break;
-      } else if (mode == 1 && cacheRange[end] >= m.end) {
-        break;
+    if (hasStart) {
+      var end = start;
+      bool hasEnd = false;
+      for (; end <= splitText.length; end++) {
+        if (mode == 3 && cacheRange[end] == m.end) {
+          hasEnd = true;
+          break;
+        } else if (mode == 2 &&
+            cacheRange[end] <= m.end &&
+            (end + 1 == cacheRange.length || cacheRange[end + 1] > m.end)) {
+          hasEnd = true;
+          break;
+        } else if (mode == 1 && cacheRange[end] >= m.end) {
+          hasEnd = true;
+          break;
+        }
+      }
+      if (hasEnd) {
+        return splitText.sublist(start, end);
       }
     }
-    return splitText.sublist(start, end);
   }
+  return [];
 }
 
 List<int> range(List<String> texts) {
@@ -402,7 +417,8 @@ String enumTokenName(Object token) {
   return name;
 }
 
-String varName(int index) => index == 0 ? r'$' : r'$' '$index';
+String varName(int index, [int total = 1]) =>
+    index == 0 && total == 1 ? r'$' : r'$' '${index + 1}';
 
 wrapPrintRegExpLL(List<List<RegExpMatch>> target) {
   target.forEach((inner) {
