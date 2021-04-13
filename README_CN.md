@@ -11,6 +11,13 @@
 
 ## New Feature 新特性
 
+### here is new features in 2.1.1
+### 这是2.1.1版本的新重要特性
+
+* add `splitAutoCompletingMatches` to get a detailed List< List< RegExpMatch>> to decorate your autoCompleting ListView
+
+* 支持更加详细的分割匹配原始数据，以用来支持推荐列表的美化。
+
 ### here is new features in 2.1.0
 ### 这是2.1版本的新重要特性
 
